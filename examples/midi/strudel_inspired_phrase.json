@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "meta": {
+    "source": "human-authored example",
+    "description": "Strudel-inspired grid idea expressed as explicit MIDI notes",
+    "key": "C minor"
+  },
+  "target": {
+    "track": 1,
+    "start_bar": 1,
+    "end_bar": 5,
+    "clip_name": "Nina Strudel Inspired Phrase"
+  },
+  "pattern": {
+    "style": "strudel-inspired",
+    "division": "1/16",
+    "comment": "This is descriptive metadata. The CLI only executes the notes array."
+  },
+  "notes": [
+    { "pitch": 60, "start": 0.0, "duration": 0.5, "velocity": 96 },
+    { "pitch": 63, "start": 0.5, "duration": 0.5, "velocity": 88 },
+    { "pitch": 67, "start": 1.0, "duration": 0.75, "velocity": 104 },
+    { "pitch": 70, "start": 2.0, "duration": 0.5, "velocity": 82 },
+    { "pitch": 67, "start": 2.5, "duration": 0.5, "velocity": 94 },
+    { "pitch": 72, "start": 3.0, "duration": 1.0, "velocity": 108 },
+    { "pitch": 58, "start": 4.0, "duration": 0.5, "velocity": 84 },
+    { "pitch": 60, "start": 4.5, "duration": 0.5, "velocity": 90 },
+    { "pitch": 65, "start": 5.0, "duration": 0.5, "velocity": 98 },
+    { "pitch": 67, "start": 6.0, "duration": 1.0, "velocity": 102 },
+    { "pitch": 70, "start": 8.0, "duration": 0.5, "velocity": 86 },
+    { "pitch": 72, "start": 8.5, "duration": 0.5, "velocity": 92 },
+    { "pitch": 75, "start": 9.0, "duration": 0.75, "velocity": 100 },
+    { "pitch": 79, "start": 10.0, "duration": 0.5, "velocity": 110 },
+    { "pitch": 75, "start": 11.0, "duration": 1.0, "velocity": 94 },
+    { "pitch": 72, "start": 12.0, "duration": 0.5, "velocity": 88 },
+    { "pitch": 70, "start": 12.5, "duration": 0.5, "velocity": 84 },
+    { "pitch": 67, "start": 13.0, "duration": 0.75, "velocity": 92 },
+    { "pitch": 63, "start": 14.0, "duration": 0.5, "velocity": 82 },
+    { "pitch": 60, "start": 15.0, "duration": 1.0, "velocity": 100 }
+  ]
+}

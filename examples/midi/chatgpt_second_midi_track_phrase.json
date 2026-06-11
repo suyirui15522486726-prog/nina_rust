@@ -1,0 +1,48 @@
+{
+  "version": 1,
+  "meta": {
+    "source": "chatgpt-generated-in-session",
+    "description": "A cold, glassy four-bar synth phrase for the second MIDI track",
+    "key": "D minor",
+    "tempo_hint": 120
+  },
+  "target": {
+    "track": 2,
+    "start_bar": 5,
+    "end_bar": 9,
+    "clip_name": "ChatGPT Cold Glass Phrase"
+  },
+  "pattern": {
+    "style": "strudel-inspired explicit MIDI",
+    "division": "1/16",
+    "comment": "Sparse minor notes with octave answers; this field is metadata only."
+  },
+  "notes": [
+    { "pitch": 50, "start": 0.0, "duration": 0.5, "velocity": 88 },
+    { "pitch": 57, "start": 0.5, "duration": 0.25, "velocity": 76 },
+    { "pitch": 62, "start": 0.75, "duration": 0.25, "velocity": 92 },
+    { "pitch": 65, "start": 1.5, "duration": 0.5, "velocity": 82 },
+    { "pitch": 69, "start": 2.0, "duration": 0.25, "velocity": 96 },
+    { "pitch": 74, "start": 2.5, "duration": 0.5, "velocity": 86 },
+    { "pitch": 72, "start": 3.25, "duration": 0.5, "velocity": 78 },
+    { "pitch": 57, "start": 4.0, "duration": 0.5, "velocity": 90 },
+    { "pitch": 62, "start": 4.5, "duration": 0.25, "velocity": 74 },
+    { "pitch": 65, "start": 5.0, "duration": 0.25, "velocity": 84 },
+    { "pitch": 69, "start": 5.75, "duration": 0.5, "velocity": 98 },
+    { "pitch": 77, "start": 6.25, "duration": 0.25, "velocity": 82 },
+    { "pitch": 74, "start": 7.0, "duration": 0.75, "velocity": 88 },
+    { "pitch": 53, "start": 8.0, "duration": 0.5, "velocity": 84 },
+    { "pitch": 60, "start": 8.5, "duration": 0.25, "velocity": 78 },
+    { "pitch": 65, "start": 9.0, "duration": 0.5, "velocity": 94 },
+    { "pitch": 70, "start": 9.75, "duration": 0.25, "velocity": 86 },
+    { "pitch": 77, "start": 10.25, "duration": 0.5, "velocity": 100 },
+    { "pitch": 81, "start": 11.0, "duration": 0.5, "velocity": 78 },
+    { "pitch": 79, "start": 11.5, "duration": 0.25, "velocity": 72 },
+    { "pitch": 55, "start": 12.0, "duration": 0.5, "velocity": 88 },
+    { "pitch": 62, "start": 12.5, "duration": 0.25, "velocity": 74 },
+    { "pitch": 67, "start": 13.0, "duration": 0.25, "velocity": 90 },
+    { "pitch": 74, "start": 13.5, "duration": 0.5, "velocity": 92 },
+    { "pitch": 72, "start": 14.25, "duration": 0.25, "velocity": 80 },
+    { "pitch": 69, "start": 15.0, "duration": 1.0, "velocity": 96 }
+  ]
+}

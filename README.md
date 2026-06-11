@@ -60,6 +60,8 @@ cargo run -- midi validate --file examples/midi/strudel_inspired_phrase.json
 cargo run -- midi preview --file examples/midi/strudel_inspired_phrase.json
 cargo run -- midi transpose --file examples/midi/strudel_inspired_phrase.json --semitones 2 --output target/phrase_up.json
 cargo run -- midi quantize --file examples/midi/strudel_inspired_phrase.json --grid 1/16 --output target/phrase_q.json
+cargo run -- midi export --file examples/midi/strudel_inspired_phrase.json --output target/phrase.mid
+cargo run -- midi import --input target/phrase.mid --track 2 --start-bar 1
 cargo run -- clip create --track 1 --start-bar 1 --end-bar 5 --name "Nina MVP Clip"
 cargo run -- clip write-midi --file examples/midi/strudel_inspired_phrase.json
 ```
@@ -90,4 +92,10 @@ Current v2 development branch:
 
 ```text
 feature/v2-midi-pipeline
+```
+
+Current v3 development branch:
+
+```text
+feature/v3-midi-toolkit
 ```

@@ -10,6 +10,9 @@ use thiserror::Error;
 use crate::client::{AbletonClient, ClientError, TcpTransport};
 use crate::engine::midi::{MidiClipDocument, MidiValidationError};
 use crate::engine::preview::{MidiPreview, PreviewError};
+use crate::engine::smf::{
+    SmfError, default_json_output_path, export_document_to_smf, import_smf_to_document,
+};
 use crate::engine::time::{BarRange, TimeError};
 use crate::engine::transform::{
     QuantizeGrid, TransformError, quantize_document, transpose_document,
@@ -35,6 +38,8 @@ pub enum CliError {
     Preview(#[from] PreviewError),
     #[error(transparent)]
     Transform(#[from] TransformError),
+    #[error(transparent)]
+    Smf(#[from] SmfError),
     #[error("validation error: {0}")]
     Validation(String),
 }
@@ -196,6 +201,26 @@ enum MidiCommand {
         #[arg(long, value_name = "OUTPUT")]
         output: PathBuf,
     },
+    #[command(about = "Import a local .mid file into Nina MIDI JSON")]
+    Import {
+        #[arg(long, value_name = "MID")]
+        input: PathBuf,
+        #[arg(long, value_name = "OUTPUT_JSON")]
+        output: Option<PathBuf>,
+        #[arg(long, value_name = "TRACK_NUMBER")]
+        track: usize,
+        #[arg(long, default_value_t = 1, value_name = "START_BAR")]
+        start_bar: u32,
+        #[arg(long, value_name = "CLIP_NAME")]
+        clip_name: Option<String>,
+    },
+    #[command(about = "Export Nina MIDI JSON into a standard .mid file")]
+    Export {
+        #[arg(long, value_name = "FILE")]
+        file: PathBuf,
+        #[arg(long, value_name = "OUTPUT_MID")]
+        output: PathBuf,
+    },
 }
 
 pub fn run() -> Result<(), CliError> {
@@ -304,6 +329,34 @@ fn run_from(cli: Cli) -> Result<(), CliError> {
                     "written": true,
                     "operation": "quantize",
                     "grid": grid
+                }))?;
+            }
+            MidiCommand::Import {
+                input,
+                output,
+                track,
+                start_bar,
+                clip_name,
+            } => {
+                let document = import_smf_to_document(&input, track, start_bar, clip_name)?;
+                let output = output.unwrap_or_else(|| default_json_output_path(&input));
+                write_midi_clip_document(output.clone(), &document)?;
+                print_json(&json!({
+                    "written": true,
+                    "operation": "import",
+                    "input": input,
+                    "output": output,
+                    "note_count": document.notes.len()
+                }))?;
+            }
+            MidiCommand::Export { file, output } => {
+                let document = read_midi_clip_document(file)?;
+                export_document_to_smf(&document, &output)?;
+                print_json(&json!({
+                    "written": true,
+                    "operation": "export",
+                    "output": output,
+                    "note_count": document.notes.len()
                 }))?;
             }
         },

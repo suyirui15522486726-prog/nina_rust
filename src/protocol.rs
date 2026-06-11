@@ -8,6 +8,7 @@ pub enum CommandType {
     SetTempo,
     StartPlayback,
     StopPlayback,
+    CreateMidiTrack,
     CreateMidiClipRange,
     WriteMidiClip,
     BrowserScanRoot,
@@ -21,6 +22,7 @@ impl CommandType {
             Self::SetTempo => "set_tempo",
             Self::StartPlayback => "start_playback",
             Self::StopPlayback => "stop_playback",
+            Self::CreateMidiTrack => "create_midi_track",
             Self::CreateMidiClipRange => "create_midi_clip_range",
             Self::WriteMidiClip => "write_midi_clip",
             Self::BrowserScanRoot => "browser_scan_root",
@@ -112,6 +114,26 @@ pub struct StopPlaybackParams;
 impl CommandPayload for StopPlaybackParams {
     fn command_type(&self) -> CommandType {
         CommandType::StopPlayback
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct CreateMidiTrackParams {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    index: Option<usize>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    name: Option<String>,
+}
+
+impl CreateMidiTrackParams {
+    pub fn new(index: Option<usize>, name: Option<String>) -> Self {
+        Self { index, name }
+    }
+}
+
+impl CommandPayload for CreateMidiTrackParams {
+    fn command_type(&self) -> CommandType {
+        CommandType::CreateMidiTrack
     }
 }
 
@@ -269,6 +291,15 @@ pub struct TempoResult {
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 pub struct TransportResult {
     pub is_playing: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+pub struct CreateTrackResult {
+    pub index: usize,
+    pub name: String,
+    pub has_midi_input: bool,
+    pub has_audio_input: bool,
+    pub track_count: usize,
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]

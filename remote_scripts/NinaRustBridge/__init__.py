@@ -152,6 +152,7 @@ class NinaRustBridge(ControlSurface):
             "set_tempo": self._set_tempo,
             "start_playback": self._start_playback,
             "stop_playback": self._stop_playback,
+            "create_midi_track": self._create_midi_track,
             "create_midi_clip_range": self._create_midi_clip_range,
             "write_midi_clip": self._write_midi_clip,
             "browser_scan_root": self._browser_scan_root,
@@ -223,6 +224,30 @@ class NinaRustBridge(ControlSurface):
     def _stop_playback(self, _params):
         self._song.stop_playing()
         return {"is_playing": False}
+
+    def _create_midi_track(self, params):
+        index = params.get("index")
+        if index is None:
+            index = len(self._song.tracks)
+        index = int(index)
+        if index < 0 or index > len(self._song.tracks):
+            raise IndexError("Track index out of range: {0}".format(index))
+
+        self._song.create_midi_track(index)
+        track = self._song.tracks[index]
+        name = params.get("name")
+        if name is not None:
+            try:
+                track.name = str(name)
+            except Exception:
+                pass
+        return {
+            "index": index,
+            "name": getattr(track, "name", ""),
+            "has_midi_input": bool(getattr(track, "has_midi_input", False)),
+            "has_audio_input": bool(getattr(track, "has_audio_input", False)),
+            "track_count": len(self._song.tracks),
+        }
 
     def _create_midi_clip_range(self, params):
         track_index = int(params.get("track_index", 0))

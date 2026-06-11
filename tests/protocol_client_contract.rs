@@ -3,8 +3,8 @@ use std::collections::VecDeque;
 
 use nina_rust::client::{AbletonClient, ClientError, Transport};
 use nina_rust::protocol::{
-    BrowserScanRootParams, CommandEnvelope, CreateMidiClipRangeParams, HealthParams,
-    ProtocolMidiNote, WriteMidiClipParams,
+    BrowserScanRootParams, CommandEnvelope, CreateMidiClipRangeParams, CreateMidiTrackParams,
+    HealthParams, ProtocolMidiNote, WriteMidiClipParams,
 };
 
 struct MockTransport {
@@ -85,6 +85,19 @@ fn browser_scan_root_serializes_root_level_scan_command() {
 }
 
 #[test]
+fn create_midi_track_serializes_optional_position_and_name() {
+    let envelope = CommandEnvelope::new(CreateMidiTrackParams::new(
+        Some(1),
+        Some("LLM Synth".to_owned()),
+    ));
+    let json = serde_json::to_string(&envelope).expect("serialize command");
+
+    assert!(json.contains(r#""type":"create_midi_track""#));
+    assert!(json.contains(r#""index":1"#));
+    assert!(json.contains(r#""name":"LLM Synth""#));
+}
+
+#[test]
 fn client_decodes_health_response() {
     let transport = MockTransport::new([r#"{"status":"success","result":{"ok":true,"name":"NinaRustBridge","host":"127.0.0.1","port":9878,"echo":{"from":"unit-test"}}}"#.to_owned()]);
     let client = AbletonClient::new(transport);
@@ -94,6 +107,24 @@ fn client_decodes_health_response() {
     assert!(health.ok);
     assert_eq!(health.name, "NinaRustBridge");
     assert_eq!(health.port, 9878);
+}
+
+#[test]
+fn client_decodes_create_midi_track_result() {
+    let transport = MockTransport::new([r#"{"status":"success","result":{"index":1,"name":"LLM Synth","has_midi_input":true,"has_audio_input":false,"track_count":3}}"#.to_owned()]);
+    let client = AbletonClient::new(transport);
+
+    let result = client
+        .create_midi_track(CreateMidiTrackParams::new(
+            Some(1),
+            Some("LLM Synth".to_owned()),
+        ))
+        .expect("track creation result");
+
+    assert_eq!(result.index, 1);
+    assert_eq!(result.name, "LLM Synth");
+    assert_eq!(result.track_count, 3);
+    assert!(result.has_midi_input);
 }
 
 #[test]

@@ -7,9 +7,10 @@ use thiserror::Error;
 
 use crate::protocol::{
     BridgeHealth, BrowserScanRootParams, BrowserScanRootResult, CommandEnvelope, CommandPayload,
-    CreateMidiClipRangeParams, HealthParams, LiveSetSnapshot, MidiClipRangeResult, RemoteResponse,
-    ResponseStatus, SnapshotParams, StartPlaybackParams, StopPlaybackParams, TempoParams,
-    TempoResult, TransportResult, WriteMidiClipParams, WriteMidiClipResult,
+    CreateMidiClipRangeParams, CreateMidiTrackParams, CreateTrackResult, HealthParams,
+    LiveSetSnapshot, MidiClipRangeResult, RemoteResponse, ResponseStatus, SnapshotParams,
+    StartPlaybackParams, StopPlaybackParams, TempoParams, TempoResult, TransportResult,
+    WriteMidiClipParams, WriteMidiClipResult,
 };
 
 #[derive(Debug, Error)]
@@ -111,6 +112,13 @@ where
 
     pub fn stop_playback(&self) -> Result<TransportResult, ClientError> {
         self.request(StopPlaybackParams)
+    }
+
+    pub fn create_midi_track(
+        &self,
+        params: CreateMidiTrackParams,
+    ) -> Result<CreateTrackResult, ClientError> {
+        self.request(params)
     }
 
     pub fn create_midi_clip_range(

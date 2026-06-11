@@ -15,4 +15,6 @@ fn help_lists_live_commands() {
     assert!(stdout.contains("snapshot"));
     assert!(stdout.contains("clip"));
     assert!(stdout.contains("browser"));
+    assert!(stdout.contains("track"));
+    assert!(stdout.contains("midi"));
 }

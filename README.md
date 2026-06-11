@@ -55,6 +55,11 @@ Then run:
 cargo run -- live health
 cargo run -- live snapshot
 cargo run -- browser scan --root sounds --limit 10
+cargo run -- track create-midi --name "LLM Synth"
+cargo run -- midi validate --file examples/midi/strudel_inspired_phrase.json
+cargo run -- midi preview --file examples/midi/strudel_inspired_phrase.json
+cargo run -- midi transpose --file examples/midi/strudel_inspired_phrase.json --semitones 2 --output target/phrase_up.json
+cargo run -- midi quantize --file examples/midi/strudel_inspired_phrase.json --grid 1/16 --output target/phrase_q.json
 cargo run -- clip create --track 1 --start-bar 1 --end-bar 5 --name "Nina MVP Clip"
 cargo run -- clip write-midi --file examples/midi/strudel_inspired_phrase.json
 ```
@@ -79,4 +84,10 @@ Current public MVP tag target:
 
 ```text
 v1.0.0
+```
+
+Current v2 development branch:
+
+```text
+feature/v2-midi-pipeline
 ```

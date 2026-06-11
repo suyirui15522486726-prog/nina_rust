@@ -52,6 +52,11 @@ class FakeSong:
         self.return_tracks = []
         self.master_track = object()
 
+    def create_midi_track(self, index):
+        if index < 0 or index > len(self.tracks):
+            raise IndexError("Track index out of range")
+        self.tracks.insert(index, FakeTrack("New MIDI Track"))
+
     def start_playing(self):
         self.is_playing = True
 
@@ -273,6 +278,25 @@ class NinaRustBridgeTests(unittest.TestCase):
         self.assertEqual(clip.name, "Contract Phrase")
         self.assertEqual(clip.notes[0], (48, 0.0, 0.5, 100, False))
         self.assertEqual(clip.notes[1], (55, 0.5, 0.5, 90, False))
+
+    def test_create_midi_track_inserts_named_track(self):
+        module = load_bridge_module()
+        bridge = module.NinaRustBridge.__new__(module.NinaRustBridge)
+        bridge._main_thread_id = threading.current_thread().ident
+        bridge._song = FakeSong()
+
+        response = bridge._process_command(
+            {
+                "type": "create_midi_track",
+                "params": {"index": 1, "name": "LLM Synth"},
+            }
+        )
+
+        self.assertEqual(response["status"], "success")
+        self.assertEqual(response["result"]["index"], 1)
+        self.assertEqual(response["result"]["name"], "LLM Synth")
+        self.assertEqual(response["result"]["track_count"], 4)
+        self.assertEqual(bridge._song.tracks[1].name, "LLM Synth")
 
     def test_browser_scan_root_returns_first_level_items(self):
         module = load_bridge_module()

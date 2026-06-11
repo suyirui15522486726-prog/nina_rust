@@ -4,13 +4,19 @@ use std::time::Duration;
 
 use clap::{Parser, Subcommand};
 use serde::Serialize;
+use serde_json::json;
 use thiserror::Error;
 
 use crate::client::{AbletonClient, ClientError, TcpTransport};
 use crate::engine::midi::{MidiClipDocument, MidiValidationError};
+use crate::engine::preview::{MidiPreview, PreviewError};
 use crate::engine::time::{BarRange, TimeError};
+use crate::engine::transform::{
+    QuantizeGrid, TransformError, quantize_document, transpose_document,
+};
 use crate::protocol::{
-    BrowserScanRootParams, CreateMidiClipRangeParams, ProtocolMidiNote, WriteMidiClipParams,
+    BrowserScanRootParams, CreateMidiClipRangeParams, CreateMidiTrackParams, ProtocolMidiNote,
+    WriteMidiClipParams,
 };
 
 #[derive(Debug, Error)]
@@ -25,6 +31,10 @@ pub enum CliError {
     Time(#[from] TimeError),
     #[error(transparent)]
     MidiValidation(#[from] MidiValidationError),
+    #[error(transparent)]
+    Preview(#[from] PreviewError),
+    #[error(transparent)]
+    Transform(#[from] TransformError),
     #[error("validation error: {0}")]
     Validation(String),
 }
@@ -62,6 +72,16 @@ enum Commands {
     Browser {
         #[command(subcommand)]
         command: BrowserCommand,
+    },
+    #[command(about = "Create or inspect Ableton tracks")]
+    Track {
+        #[command(subcommand)]
+        command: TrackCommand,
+    },
+    #[command(about = "Validate and transform external MIDI JSON")]
+    Midi {
+        #[command(subcommand)]
+        command: MidiCommand,
     },
 }
 
@@ -131,6 +151,53 @@ enum BrowserCommand {
     },
 }
 
+#[derive(Debug, Subcommand)]
+enum TrackCommand {
+    #[command(about = "Create a MIDI track in Ableton Live")]
+    CreateMidi {
+        #[arg(long, value_name = "NAME")]
+        name: Option<String>,
+        #[arg(long, value_name = "POSITION")]
+        position: Option<usize>,
+    },
+}
+
+#[derive(Debug, Subcommand)]
+enum MidiCommand {
+    #[command(about = "Validate a MIDI JSON file without writing to Ableton")]
+    Validate {
+        #[arg(long, value_name = "FILE")]
+        file: PathBuf,
+        #[arg(long, default_value_t = 4, value_name = "BEATS")]
+        beats_per_bar: u8,
+    },
+    #[command(about = "Print a compact preview of a MIDI JSON file")]
+    Preview {
+        #[arg(long, value_name = "FILE")]
+        file: PathBuf,
+        #[arg(long, default_value_t = 4, value_name = "BEATS")]
+        beats_per_bar: u8,
+    },
+    #[command(about = "Transpose all MIDI notes by semitones")]
+    Transpose {
+        #[arg(long, value_name = "FILE")]
+        file: PathBuf,
+        #[arg(long, value_name = "SEMITONES")]
+        semitones: i16,
+        #[arg(long, value_name = "OUTPUT")]
+        output: PathBuf,
+    },
+    #[command(about = "Quantize MIDI note starts and durations")]
+    Quantize {
+        #[arg(long, value_name = "FILE")]
+        file: PathBuf,
+        #[arg(long, value_name = "GRID")]
+        grid: String,
+        #[arg(long, value_name = "OUTPUT")]
+        output: PathBuf,
+    },
+}
+
 pub fn run() -> Result<(), CliError> {
     run_from(Cli::parse())
 }
@@ -183,6 +250,63 @@ fn run_from(cli: Cli) -> Result<(), CliError> {
                 print_json(&client.browser_scan_root(BrowserScanRootParams::new(root, limit))?)?;
             }
         },
+        Commands::Track { command } => match command {
+            TrackCommand::CreateMidi { name, position } => {
+                let remote_index = optional_user_position_to_remote_index(position)?;
+                print_json(
+                    &client.create_midi_track(CreateMidiTrackParams::new(remote_index, name))?,
+                )?;
+            }
+        },
+        Commands::Midi { command } => match command {
+            MidiCommand::Validate {
+                file,
+                beats_per_bar,
+            } => {
+                let document = read_midi_clip_document(file)?;
+                document.validate(beats_per_bar)?;
+                print_json(&json!({
+                    "valid": true,
+                    "track": document.target.track,
+                    "start_bar": document.target.start_bar,
+                    "end_bar": document.target.end_bar,
+                    "note_count": document.notes.len()
+                }))?;
+            }
+            MidiCommand::Preview {
+                file,
+                beats_per_bar,
+            } => {
+                let document = read_midi_clip_document(file)?;
+                let preview = MidiPreview::from_document(&document, beats_per_bar)?;
+                print_json(&preview)?;
+            }
+            MidiCommand::Transpose {
+                file,
+                semitones,
+                output,
+            } => {
+                let document = read_midi_clip_document(file)?;
+                let transposed = transpose_document(&document, semitones)?;
+                write_midi_clip_document(output, &transposed)?;
+                print_json(&json!({
+                    "written": true,
+                    "operation": "transpose",
+                    "semitones": semitones
+                }))?;
+            }
+            MidiCommand::Quantize { file, grid, output } => {
+                let document = read_midi_clip_document(file)?;
+                let grid = QuantizeGrid::parse(&grid)?;
+                let quantized = quantize_document(&document, grid)?;
+                write_midi_clip_document(output, &quantized)?;
+                print_json(&json!({
+                    "written": true,
+                    "operation": "quantize",
+                    "grid": grid
+                }))?;
+            }
+        },
     }
 
     Ok(())
@@ -191,6 +315,12 @@ fn run_from(cli: Cli) -> Result<(), CliError> {
 fn read_midi_clip_document(file: PathBuf) -> Result<MidiClipDocument, CliError> {
     let content = fs::read_to_string(file)?;
     Ok(serde_json::from_str(&content)?)
+}
+
+fn write_midi_clip_document(file: PathBuf, document: &MidiClipDocument) -> Result<(), CliError> {
+    let content = serde_json::to_string_pretty(document)?;
+    fs::write(file, format!("{content}\n"))?;
+    Ok(())
 }
 
 fn write_params_from_document(
@@ -223,6 +353,12 @@ fn user_track_to_remote_index(track: usize) -> Result<usize, CliError> {
     track
         .checked_sub(1)
         .ok_or_else(|| CliError::Validation("track must be at least 1".to_owned()))
+}
+
+fn optional_user_position_to_remote_index(
+    position: Option<usize>,
+) -> Result<Option<usize>, CliError> {
+    position.map(user_track_to_remote_index).transpose()
 }
 
 fn print_json<T>(value: &T) -> Result<(), CliError>

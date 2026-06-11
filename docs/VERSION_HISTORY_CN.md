@@ -36,13 +36,22 @@ python3 -m unittest tests.remote_script.test_nina_rust_bridge -v
 
 ## 后续规划
 
-### v2.0 协作增强层
+### v2.0 MIDI Pipeline
 
-适合作为组员功能分支：
+定位：Rust 不负责作曲生成，而是负责接收、校验、预览、转换和写入外部生成的 MIDI JSON。
+
+当前 `feature/v2-midi-pipeline` 已加入：
+
+- `track create-midi`：在 Ableton 中创建 MIDI track。
+- `midi validate`：校验外部 MIDI JSON。
+- `midi preview`：预览 note 数量、pitch 范围、velocity 范围和 clip 长度。
+- `midi transpose`：整体转调，输出新的 MIDI JSON。
+- `midi quantize`：按网格量化 start/duration，输出新的 MIDI JSON。
+
+后续适合作为组员功能分支：
 
 - MIDI import/export。
 - browser index/search v2。
-- Rust melody/rhythm generator。
 - Rust 并发 watch mode。
 
 ### v3.0 课程最终版

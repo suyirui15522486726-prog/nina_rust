@@ -54,6 +54,28 @@ python3 -m unittest tests.remote_script.test_nina_rust_bridge -v
 - browser index/search v2。
 - Rust 并发 watch mode。
 
+### v3.0 MIDI Toolkit
+
+定位：本地 MIDI 文件工具层，脱离 Ableton 也可以独立运行。
+
+当前 `feature/v3-midi-toolkit` 已加入：
+
+- `midi export`：把 Nina MIDI JSON 导出为标准 `.mid` 文件。
+- `midi import`：把本地 `.mid` 文件导入为 Nina MIDI JSON。
+- `midi import` 不指定 `--output` 时，会在输入 MIDI 的同目录生成同名 `.json`。
+
+示例：
+
+```bash
+cargo run -- midi import --input /path/to/demo.mid --track 2 --start-bar 1
+```
+
+默认输出：
+
+```text
+/path/to/demo.json
+```
+
 ### v3.0 课程最终版
 
 目标：

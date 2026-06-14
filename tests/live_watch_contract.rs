@@ -1,3 +1,5 @@
+// 本文件作用：定义项目契约测试，验证对应模块的公开行为。
+
 use std::fs;
 use std::time::Duration;
 
@@ -6,6 +8,7 @@ use nina_rust::live::{
 };
 use nina_rust::protocol::{LiveSetSnapshot, TrackSummary};
 
+// 函数作用：执行 snapshot 相关逻辑。
 fn snapshot(
     tempo: f64,
     is_playing: bool,
@@ -38,6 +41,7 @@ fn snapshot(
 }
 
 #[test]
+// 函数作用：执行 snapshot diff reports tempo transport and track changes 相关逻辑。
 fn snapshot_diff_reports_tempo_transport_and_track_changes() {
     let before = snapshot(
         120.0,
@@ -77,6 +81,7 @@ fn snapshot_diff_reports_tempo_transport_and_track_changes() {
 }
 
 #[test]
+// 函数作用：执行 recorder writes watch events as json lines 相关逻辑。
 fn recorder_writes_watch_events_as_json_lines() {
     let path = std::env::temp_dir().join(format!("nina-live-watch-{}.jsonl", std::process::id()));
     let event = WatchEvent::new(
@@ -100,6 +105,7 @@ fn recorder_writes_watch_events_as_json_lines() {
 }
 
 #[test]
+// 函数作用：执行 watch loop emits events from snapshot provider 相关逻辑。
 fn watch_loop_emits_events_from_snapshot_provider() {
     let snapshots = vec![
         snapshot(120.0, false, [("1-MIDI", true, false)]),

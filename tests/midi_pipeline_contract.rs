@@ -1,7 +1,10 @@
+// 本文件作用：定义项目契约测试，验证对应模块的公开行为。
+
 use nina_rust::engine::midi::MidiClipDocument;
 use nina_rust::engine::preview::MidiPreview;
 use nina_rust::engine::transform::{QuantizeGrid, quantize_document, transpose_document};
 
+// 函数作用：执行 sample document 相关逻辑。
 fn sample_document() -> MidiClipDocument {
     serde_json::from_str(
         r#"{
@@ -18,6 +21,7 @@ fn sample_document() -> MidiClipDocument {
 }
 
 #[test]
+// 函数作用：执行 preview summarizes external midi json 相关逻辑。
 fn preview_summarizes_external_midi_json() {
     let document = sample_document();
     let preview = MidiPreview::from_document(&document, 4).expect("preview builds");
@@ -32,6 +36,7 @@ fn preview_summarizes_external_midi_json() {
 }
 
 #[test]
+// 函数作用：执行 transpose document shifts all notes without changing timing 相关逻辑。
 fn transpose_document_shifts_all_notes_without_changing_timing() {
     let document = sample_document();
     let transposed = transpose_document(&document, 2).expect("transpose succeeds");
@@ -43,6 +48,7 @@ fn transpose_document_shifts_all_notes_without_changing_timing() {
 }
 
 #[test]
+// 函数作用：执行 transpose document rejects out of range pitch 相关逻辑。
 fn transpose_document_rejects_out_of_range_pitch() {
     let document: MidiClipDocument = serde_json::from_str(
         r#"{
@@ -59,6 +65,7 @@ fn transpose_document_rejects_out_of_range_pitch() {
 }
 
 #[test]
+// 函数作用：执行 quantize document snaps start and duration to grid 相关逻辑。
 fn quantize_document_snaps_start_and_duration_to_grid() {
     let document = sample_document();
     let quantized =
@@ -73,6 +80,7 @@ fn quantize_document_snaps_start_and_duration_to_grid() {
 }
 
 #[test]
+// 函数作用：执行 quantize grid parses cli text 相关逻辑。
 fn quantize_grid_parses_cli_text() {
     assert_eq!(
         QuantizeGrid::parse("1/16").expect("grid parses"),

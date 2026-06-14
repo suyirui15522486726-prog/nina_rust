@@ -1,3 +1,5 @@
+// 本文件作用：定义项目契约测试，验证对应模块的公开行为。
+
 use nina_rust::browser::{BrowserSearchHit, IndexedBrowserItem};
 use nina_rust::context::AgentContext;
 use nina_rust::drum::AgentDrumMap;
@@ -6,6 +8,7 @@ use nina_rust::protocol::{
     DrumTrackScanResult, LiveSetSnapshot, TrackSummary,
 };
 
+// 函数作用：执行 snapshot 相关逻辑。
 fn snapshot() -> LiveSetSnapshot {
     LiveSetSnapshot {
         tempo: 132.0,
@@ -35,6 +38,7 @@ fn snapshot() -> LiveSetSnapshot {
     }
 }
 
+// 函数作用：执行 device scan 相关逻辑。
 fn device_scan() -> DeviceTrackScanResult {
     DeviceTrackScanResult {
         track: DeviceTrackSummary {
@@ -58,6 +62,7 @@ fn device_scan() -> DeviceTrackScanResult {
     }
 }
 
+// 函数作用：执行 drum map 相关逻辑。
 fn drum_map() -> AgentDrumMap {
     AgentDrumMap::from_scan_result(&DrumTrackScanResult {
         track: DeviceTrackSummary {
@@ -86,6 +91,7 @@ fn drum_map() -> AgentDrumMap {
     })
 }
 
+// 函数作用：执行 browser hit 相关逻辑。
 fn browser_hit() -> BrowserSearchHit {
     BrowserSearchHit {
         item: IndexedBrowserItem {
@@ -102,6 +108,7 @@ fn browser_hit() -> BrowserSearchHit {
 }
 
 #[test]
+// 函数作用：执行 agent context collects track devices drum map browser hits and tool catalog 相关逻辑。
 fn agent_context_collects_track_devices_drum_map_browser_hits_and_tool_catalog() {
     let context = AgentContext::for_track(
         2,

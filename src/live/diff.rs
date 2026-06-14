@@ -1,9 +1,12 @@
+// 本文件作用：比较两份 Ableton snapshot 并生成变化事件。
+
 use serde::{Deserialize, Serialize};
 
 use crate::live::event::LiveEvent;
 use crate::protocol::{LiveSetSnapshot, TrackSummary};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+// 结构体作用：承载 Snapshot Diff 相关数据。
 pub struct SnapshotDiff {
     pub before_track_count: usize,
     pub after_track_count: usize,
@@ -11,6 +14,7 @@ pub struct SnapshotDiff {
 }
 
 impl SnapshotDiff {
+    // 函数作用：执行 between 相关逻辑。
     pub fn between(before: &LiveSetSnapshot, after: &LiveSetSnapshot) -> Self {
         let mut events = Vec::new();
         push_tempo_change(&mut events, before, after);
@@ -24,11 +28,13 @@ impl SnapshotDiff {
         }
     }
 
+    // 函数作用：判断是否存在 changes。
     pub fn has_changes(&self) -> bool {
         !self.events.is_empty()
     }
 }
 
+// 函数作用：把 tempo change 写入变化列表。
 fn push_tempo_change(
     events: &mut Vec<LiveEvent>,
     before: &LiveSetSnapshot,
@@ -42,6 +48,7 @@ fn push_tempo_change(
     }
 }
 
+// 函数作用：把 transport change 写入变化列表。
 fn push_transport_change(
     events: &mut Vec<LiveEvent>,
     before: &LiveSetSnapshot,
@@ -55,6 +62,7 @@ fn push_transport_change(
     }
 }
 
+// 函数作用：把 track changes 写入变化列表。
 fn push_track_changes(
     events: &mut Vec<LiveEvent>,
     before_tracks: &[TrackSummary],
@@ -77,6 +85,7 @@ fn push_track_changes(
     }
 }
 
+// 函数作用：把 existing track changes 写入变化列表。
 fn push_existing_track_changes(
     events: &mut Vec<LiveEvent>,
     before: &TrackSummary,

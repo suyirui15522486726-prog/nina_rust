@@ -1,3 +1,5 @@
+// 本文件作用：建模 Drum Rack pad map 和外部鼓组 pattern JSON。
+
 use std::collections::{BTreeMap, BTreeSet};
 
 use serde::{Deserialize, Serialize};
@@ -11,6 +13,7 @@ use crate::protocol::{DeviceTrackSummary, DrumPadSummary, DrumRackSummary, DrumT
 pub const DRUM_PATTERN_VERSION: u8 = 1;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+// 结构体作用：承载 Agent Drum Map 相关数据。
 pub struct AgentDrumMap {
     pub version: u8,
     pub track: DeviceTrackSummary,
@@ -21,6 +24,7 @@ pub struct AgentDrumMap {
 }
 
 impl AgentDrumMap {
+    // 函数作用：从 scan result 构造当前类型。
     pub fn from_scan_result(scan: &DrumTrackScanResult) -> Self {
         let pads = scan
             .racks
@@ -44,16 +48,19 @@ impl AgentDrumMap {
         }
     }
 
+    // 函数作用：执行 pad by id 相关逻辑。
     pub fn pad_by_id(&self, pad_id: &str) -> Option<&AgentDrumPad> {
         self.pads.iter().find(|pad| pad.pad_id == pad_id)
     }
 
+    // 函数作用：执行 pad by note 相关逻辑。
     pub fn pad_by_note(&self, note: u8) -> Option<&AgentDrumPad> {
         self.pads.iter().find(|pad| pad.note == Some(note))
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+// 结构体作用：承载 Agent Drum Pad 相关数据。
 pub struct AgentDrumPad {
     pub pad_id: String,
     pub rack_index: usize,
@@ -69,6 +76,7 @@ pub struct AgentDrumPad {
 }
 
 impl AgentDrumPad {
+    // 函数作用：从 pad 构造当前类型。
     fn from_pad(rack_index: usize, rack: &DrumRackSummary, pad: &DrumPadSummary) -> Self {
         let chains = pad
             .chains
@@ -99,6 +107,7 @@ impl AgentDrumPad {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+// 结构体作用：承载 Drum Pattern Document 相关数据。
 pub struct DrumPatternDocument {
     pub version: u8,
     #[serde(default)]
@@ -108,6 +117,7 @@ pub struct DrumPatternDocument {
 }
 
 impl DrumPatternDocument {
+    // 函数作用：校验输入数据是否满足业务约束。
     pub fn validate_static(&self, beats_per_bar: u8) -> Result<(), DrumPatternError> {
         if self.version != DRUM_PATTERN_VERSION {
             return Err(DrumPatternError::UnsupportedVersion(self.version));
@@ -130,6 +140,7 @@ impl DrumPatternDocument {
         Ok(())
     }
 
+    // 函数作用：转换为 midi clip document。
     pub fn to_midi_clip_document(
         &self,
         map: &AgentDrumMap,
@@ -169,6 +180,7 @@ impl DrumPatternDocument {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+// 结构体作用：承载 Drum Pattern Event 相关数据。
 pub struct DrumPatternEvent {
     #[serde(default)]
     pub pad_id: Option<String>,
@@ -187,6 +199,7 @@ pub struct DrumPatternEvent {
 }
 
 impl DrumPatternEvent {
+    // 函数作用：校验输入数据是否满足业务约束。
     fn validate_static(
         &self,
         index: usize,
@@ -221,6 +234,7 @@ impl DrumPatternEvent {
         Ok(())
     }
 
+    // 函数作用：执行 resolve pitch 相关逻辑。
     fn resolve_pitch(&self, index: usize, map: &AgentDrumMap) -> Result<u8, DrumPatternError> {
         match (&self.pad_id, self.note) {
             (Some(pad_id), Some(note)) => {
@@ -267,6 +281,7 @@ impl DrumPatternEvent {
         }
     }
 
+    // 函数作用：执行 resolve start 相关逻辑。
     fn resolve_start(
         &self,
         index: usize,
@@ -300,6 +315,7 @@ impl DrumPatternEvent {
 }
 
 #[derive(Debug, Error, PartialEq)]
+// 枚举作用：列出 Drum Pattern Error 的可选状态或命令。
 pub enum DrumPatternError {
     #[error("unsupported drum pattern version {0}; expected version 1")]
     UnsupportedVersion(u8),
@@ -355,6 +371,7 @@ pub enum DrumPatternError {
     },
 }
 
+// 函数作用：构建 role index。
 fn build_role_index(pads: &[AgentDrumPad]) -> BTreeMap<String, Vec<String>> {
     let mut index = BTreeMap::<String, Vec<String>>::new();
     for pad in pads {
@@ -368,6 +385,7 @@ fn build_role_index(pads: &[AgentDrumPad]) -> BTreeMap<String, Vec<String>> {
     index
 }
 
+// 函数作用：执行 infer role tags 相关逻辑。
 fn infer_role_tags(pad: &DrumPadSummary, chains: &[String], devices: &[String]) -> Vec<String> {
     let text = std::iter::once(pad.name.as_str())
         .chain(std::iter::once(pad.role_guess.as_str()))
@@ -389,6 +407,7 @@ fn infer_role_tags(pad: &DrumPadSummary, chains: &[String], devices: &[String]) 
     tags.into_iter().collect()
 }
 
+// 函数作用：把 role aliases 写入变化列表。
 fn push_role_aliases(text: &str, tags: &mut BTreeSet<String>) {
     if contains_any(text, &["kick", "bd", "bass drum"]) {
         tags.insert("kick".to_owned());
@@ -430,10 +449,12 @@ fn push_role_aliases(text: &str, tags: &mut BTreeSet<String>) {
     }
 }
 
+// 函数作用：执行 contains any 相关逻辑。
 fn contains_any(text: &str, needles: &[&str]) -> bool {
     needles.iter().any(|needle| text.contains(needle))
 }
 
+// 函数作用：校验输入数据是否满足业务约束。
 fn validate_start(index: usize, start: f64) -> Result<f64, DrumPatternError> {
     if !start.is_finite() || start < 0.0 {
         return Err(DrumPatternError::InvalidStart { index, start });

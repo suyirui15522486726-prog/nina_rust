@@ -1,3 +1,5 @@
+// 本文件作用：定义项目契约测试，验证对应模块的公开行为。
+
 use std::fs;
 use std::path::Path;
 
@@ -6,6 +8,7 @@ use nina_rust::engine::smf::{
     default_json_output_path, export_document_to_smf, import_smf_to_document,
 };
 
+// 函数作用：执行 sample document 相关逻辑。
 fn sample_document() -> MidiClipDocument {
     serde_json::from_str(
         r#"{
@@ -22,6 +25,7 @@ fn sample_document() -> MidiClipDocument {
 }
 
 #[test]
+// 函数作用：执行 default json output path uses same directory and stem 相关逻辑。
 fn default_json_output_path_uses_same_directory_and_stem() {
     let output = default_json_output_path(Path::new("/tmp/local_phrase.mid"));
 
@@ -29,6 +33,7 @@ fn default_json_output_path_uses_same_directory_and_stem() {
 }
 
 #[test]
+// 函数作用：执行 exports json document to standard midi file 相关逻辑。
 fn exports_json_document_to_standard_midi_file() {
     let dir = tempfile_dir("export_json_document_to_standard_midi_file");
     let output = dir.join("phrase.mid");
@@ -41,6 +46,7 @@ fn exports_json_document_to_standard_midi_file() {
 }
 
 #[test]
+// 函数作用：执行 imports standard midi file to midi json document 相关逻辑。
 fn imports_standard_midi_file_to_midi_json_document() {
     let dir = tempfile_dir("imports_standard_midi_file_to_midi_json_document");
     let midi_path = dir.join("phrase.mid");
@@ -60,6 +66,7 @@ fn imports_standard_midi_file_to_midi_json_document() {
     assert_eq!(imported.notes[0].pitch, 60);
 }
 
+// 函数作用：执行 tempfile dir 相关逻辑。
 fn tempfile_dir(name: &str) -> std::path::PathBuf {
     let mut dir = std::env::temp_dir();
     dir.push(format!("nina_rust_{name}_{}", std::process::id()));

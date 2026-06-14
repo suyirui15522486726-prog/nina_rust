@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+# 本文件作用：Ableton Remote Script 端的本地 TCP/JSON 桥接层。
 """Ableton Live Remote Script bridge for the Nina Rust CLI.
 
 This file is loaded by Ableton Live's embedded Python runtime. Keep it thin:
@@ -8,6 +9,7 @@ it exposes a localhost TCP/JSON bridge and leaves music decisions to Rust.
 from __future__ import absolute_import, print_function
 
 import json
+import os
 import socket
 import threading
 import time
@@ -25,16 +27,19 @@ BRIDGE_NAME = "NinaRustBridge"
 HOST = "127.0.0.1"
 PORT = 9878
 RECV_BYTES = 8192
-MAIN_THREAD_TIMEOUT_SECONDS = 15.0
+MAIN_THREAD_TIMEOUT_SECONDS = 60.0
 
 
+# 函数作用：创建 instance。
 def create_instance(c_instance):
     return NinaRustBridge(c_instance)
 
 
+# 类作用：封装 Nina Rust Bridge 的状态和行为。
 class NinaRustBridge(ControlSurface):
     """Thin Ableton Control Surface adapter for localhost JSON commands."""
 
+    # 函数作用：执行 init 相关逻辑。
     def __init__(self, c_instance):
         ControlSurface.__init__(self, c_instance)
         self._server = None
@@ -46,6 +51,7 @@ class NinaRustBridge(ControlSurface):
         self.log_message("{0} initializing".format(BRIDGE_NAME))
         self._start_server()
 
+    # 函数作用：执行 disconnect 相关逻辑。
     def disconnect(self):
         self._running = False
         if self._server is not None:
@@ -56,6 +62,7 @@ class NinaRustBridge(ControlSurface):
             self._server = None
         ControlSurface.disconnect(self)
 
+    # 函数作用：执行 start server 相关逻辑。
     def _start_server(self):
         try:
             self._server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -75,6 +82,7 @@ class NinaRustBridge(ControlSurface):
             self.log_message(traceback.format_exc())
             self.show_message("{0} error: {1}".format(BRIDGE_NAME, exc))
 
+    # 函数作用：执行 server loop 相关逻辑。
     def _server_loop(self):
         while self._running:
             try:
@@ -92,6 +100,7 @@ class NinaRustBridge(ControlSurface):
                     self.log_message("{0} accept error: {1}".format(BRIDGE_NAME, exc))
                 time.sleep(0.2)
 
+    # 函数作用：执行 handle client 相关逻辑。
     def _handle_client(self, client):
         buffer = ""
         client.settimeout(None)
@@ -114,6 +123,7 @@ class NinaRustBridge(ControlSurface):
             except Exception:
                 pass
 
+    # 函数作用：执行 process client buffer 相关逻辑。
     def _process_client_buffer(self, client, buffer):
         while buffer:
             stripped = buffer.lstrip()
@@ -136,6 +146,7 @@ class NinaRustBridge(ControlSurface):
             return ""
         return buffer
 
+    # 函数作用：执行 send response 相关逻辑。
     def _send_response(self, client, response):
         payload = json.dumps(response) + "\n"
         try:
@@ -143,6 +154,7 @@ class NinaRustBridge(ControlSurface):
         except AttributeError:
             client.sendall(payload)
 
+    # 函数作用：执行 process command 相关逻辑。
     def _process_command(self, command):
         command_type = command.get("type") or command.get("method") or ""
         params = command.get("params", {}) or {}
@@ -153,11 +165,17 @@ class NinaRustBridge(ControlSurface):
             "start_playback": self._start_playback,
             "stop_playback": self._stop_playback,
             "create_midi_track": self._create_midi_track,
+            "create_audio_track": self._create_audio_track,
             "create_midi_clip_range": self._create_midi_clip_range,
             "write_midi_clip": self._write_midi_clip,
             "browser_scan_root": self._browser_scan_root,
             "device_scan_track": self._device_scan_track,
             "drum_scan_track": self._drum_scan_track,
+            "audio_import_clip": self._audio_import_clip,
+            "audio_effect_scan": self._audio_effect_scan,
+            "audio_clip_scan": self._audio_clip_scan,
+            "audio_context": self._audio_context,
+            "audio_to_midi": self._audio_to_midi,
             "export_midi_track": self._export_midi_track,
         }
         if command_type not in handlers:
@@ -173,11 +191,13 @@ class NinaRustBridge(ControlSurface):
             self.log_message(traceback.format_exc())
             return {"status": "error", "message": str(exc)}
 
+    # 函数作用：运行 on main thread。
     def _run_on_main_thread(self, func):
         if threading.current_thread().ident == getattr(self, "_main_thread_id", None):
             return func()
         result_queue = queue.Queue()
 
+        # 函数作用：执行 task 相关逻辑。
         def task():
             try:
                 result_queue.put(("ok", func()))
@@ -190,6 +210,7 @@ class NinaRustBridge(ControlSurface):
             raise value
         return value
 
+    # 函数作用：执行 health check 相关逻辑。
     def _health_check(self, params):
         return {
             "ok": True,
@@ -199,6 +220,7 @@ class NinaRustBridge(ControlSurface):
             "echo": params,
         }
 
+    # 函数作用：执行 snapshot live set 相关逻辑。
     def _snapshot_live_set(self, _params):
         tracks = []
         for index, track in enumerate(self._song.tracks):
@@ -213,6 +235,7 @@ class NinaRustBridge(ControlSurface):
             "tracks": tracks,
         }
 
+    # 函数作用：执行 set tempo 相关逻辑。
     def _set_tempo(self, params):
         tempo = float(params.get("tempo", 120.0))
         if tempo <= 0.0:
@@ -220,14 +243,17 @@ class NinaRustBridge(ControlSurface):
         self._song.tempo = tempo
         return {"tempo": float(self._song.tempo)}
 
+    # 函数作用：执行 start playback 相关逻辑。
     def _start_playback(self, _params):
         self._song.start_playing()
         return {"is_playing": True}
 
+    # 函数作用：执行 stop playback 相关逻辑。
     def _stop_playback(self, _params):
         self._song.stop_playing()
         return {"is_playing": False}
 
+    # 函数作用：创建 midi track。
     def _create_midi_track(self, params):
         index = params.get("index")
         if index is None:
@@ -252,6 +278,35 @@ class NinaRustBridge(ControlSurface):
             "track_count": len(self._song.tracks),
         }
 
+    # 函数作用：创建 audio track。
+    def _create_audio_track(self, params):
+        index = params.get("index")
+        if index is None:
+            index = len(self._song.tracks)
+        index = int(index)
+        if index < 0 or index > len(self._song.tracks):
+            raise IndexError("Track index out of range: {0}".format(index))
+
+        if not hasattr(self._song, "create_audio_track"):
+            raise RuntimeError("Live API does not expose create_audio_track")
+
+        self._song.create_audio_track(index)
+        track = self._song.tracks[index]
+        name = params.get("name")
+        if name is not None:
+            try:
+                track.name = str(name)
+            except Exception:
+                pass
+        return {
+            "index": index,
+            "name": getattr(track, "name", ""),
+            "has_midi_input": bool(getattr(track, "has_midi_input", False)),
+            "has_audio_input": bool(getattr(track, "has_audio_input", False)),
+            "track_count": len(self._song.tracks),
+        }
+
+    # 函数作用：创建 midi clip range。
     def _create_midi_clip_range(self, params):
         track_index = int(params.get("track_index", 0))
         start_bar = int(params.get("start_bar", 1))
@@ -278,6 +333,7 @@ class NinaRustBridge(ControlSurface):
             length,
         )
 
+    # 函数作用：写入 midi clip。
     def _write_midi_clip(self, params):
         notes = params.get("notes") or []
         result = self._create_midi_clip_range(params)
@@ -295,6 +351,7 @@ class NinaRustBridge(ControlSurface):
 
         return {"clip": result, "note_count": len(live_notes)}
 
+    # 函数作用：执行 browser scan root 相关逻辑。
     def _browser_scan_root(self, params):
         root_name = str(params.get("root") or "sounds")
         limit = int(params.get("limit") or 25)
@@ -323,6 +380,7 @@ class NinaRustBridge(ControlSurface):
             "items": items,
         }
 
+    # 函数作用：执行 device scan track 相关逻辑。
     def _device_scan_track(self, params):
         track_index = int(params.get("track_index", 0))
         include_parameters = bool(params.get("include_parameters", False))
@@ -345,6 +403,7 @@ class NinaRustBridge(ControlSurface):
             "device_count": len(devices),
         }
 
+    # 函数作用：执行 drum scan track 相关逻辑。
     def _drum_scan_track(self, params):
         track_index = int(params.get("track_index", 0))
         include_empty_pads = bool(params.get("include_empty_pads", False))
@@ -364,6 +423,124 @@ class NinaRustBridge(ControlSurface):
             "racks": racks,
         }
 
+    # 函数作用：执行 audio import clip 相关逻辑。
+    def _audio_import_clip(self, params):
+        track_index = int(params.get("track_index", 0))
+        file_path = str(params.get("file_path") or "")
+        destination_time = float(params.get("destination_time", 0.0))
+        name = params.get("name")
+
+        if not file_path:
+            raise ValueError("file_path is required")
+        if not os.path.isabs(file_path):
+            raise ValueError("file_path must be absolute")
+        if destination_time < 0.0:
+            raise ValueError("destination_time must be non-negative")
+
+        track = self._require_audio_track(track_index)
+        if not hasattr(track, "create_audio_clip"):
+            raise RuntimeError("Live API does not expose Track.create_audio_clip")
+
+        created_clip = track.create_audio_clip(file_path, destination_time)
+        clip = self._resolve_created_arrangement_clip(track, created_clip, destination_time)
+        if name is not None and clip is not None:
+            try:
+                clip.name = str(name)
+            except Exception:
+                pass
+
+        return self._audio_import_result(track_index, track, clip, file_path, destination_time)
+
+    # 函数作用：执行 audio effect scan 相关逻辑。
+    def _audio_effect_scan(self, params):
+        track_index = int(params.get("track_index", 0))
+        track = self._require_audio_track(track_index)
+        devices = self._audio_effect_summaries(track)
+        return {
+            "track": self._device_track_summary(track_index, track),
+            "devices": devices,
+            "device_count": len(devices),
+        }
+
+    # 函数作用：执行 audio clip scan 相关逻辑。
+    def _audio_clip_scan(self, params):
+        track_index = int(params.get("track_index", 0))
+        track = self._require_audio_track(track_index)
+        clips = self._audio_clip_summaries(track)
+        return {
+            "track": self._device_track_summary(track_index, track),
+            "clip_count": len(clips),
+            "clips": clips,
+        }
+
+    # 函数作用：执行 audio context 相关逻辑。
+    def _audio_context(self, params):
+        track_index = int(params.get("track_index", 0))
+        track = self._require_audio_track(track_index)
+        clips = self._audio_clip_summaries(track)
+        effects = self._audio_effect_summaries(track)
+        return {
+            "track": self._device_track_summary(track_index, track),
+            "clip_count": len(clips),
+            "clips": clips,
+            "effect_count": len(effects),
+            "effects": effects,
+        }
+
+    # 函数作用：执行 audio effect summaries 相关逻辑。
+    def _audio_effect_summaries(self, track):
+        devices = []
+        for index, device in enumerate(getattr(track, "devices", []) or []):
+            devices.append(
+                self._device_summary(index, device, depth=0, include_parameters=False)
+            )
+        return devices
+
+    # 函数作用：执行 audio to midi 相关逻辑。
+    def _audio_to_midi(self, params):
+        track_index = int(params.get("track_index", 0))
+        clip_index = int(params.get("clip_index", 0))
+        mode = str(params.get("mode") or "drums").lower()
+        track = self._require_audio_track(track_index)
+        clip = self._audio_clip_at_index(track, clip_index)
+
+        if not bool(getattr(clip, "is_audio_clip", False)):
+            raise ValueError("Clip {0} is not an audio clip".format(clip_index))
+
+        try:
+            from Live.Conversions import AudioToMidiType, audio_to_midi_clip
+            try:
+                from Live.Conversions import is_convertible_to_midi
+            except ImportError:
+                is_convertible_to_midi = None
+        except ImportError as exc:
+            raise RuntimeError(
+                "Audio-to-MIDI conversion requires Live.Conversions: {0}".format(exc)
+            )
+
+        if callable(is_convertible_to_midi) and not bool(is_convertible_to_midi(self._song, clip)):
+            raise ValueError("Audio clip is not convertible to MIDI")
+
+        conversion_type = self._audio_to_midi_conversion_type(AudioToMidiType, mode)
+        before_track_ids = set([id(track_item) for track_item in self._song.tracks])
+        audio_to_midi_clip(self._song, clip, conversion_type)
+
+        created_tracks = []
+        for index, track_item in enumerate(self._song.tracks):
+            if id(track_item) not in before_track_ids:
+                created_tracks.append(self._track_summary(index, track_item))
+
+        return {
+            "converted": True,
+            "mode": mode,
+            "track_index": track_index,
+            "clip_index": clip_index,
+            "source_clip": getattr(clip, "name", None),
+            "created_track_count": len(created_tracks),
+            "created_tracks": created_tracks,
+        }
+
+    # 函数作用：导出 midi track。
     def _export_midi_track(self, params):
         track_index = int(params.get("track_index", 0))
         track = self._require_midi_track(track_index)
@@ -420,6 +597,7 @@ class NinaRustBridge(ControlSurface):
             "notes": notes,
         }
 
+    # 函数作用：执行 track summary 相关逻辑。
     def _track_summary(self, index, track):
         return {
             "index": index,
@@ -430,11 +608,22 @@ class NinaRustBridge(ControlSurface):
             "clip_slot_count": len(track.clip_slots),
         }
 
+    # 函数作用：执行 device track summary 相关逻辑。
+    def _device_track_summary(self, index, track):
+        return {
+            "index": index,
+            "name": getattr(track, "name", ""),
+            "has_midi_input": bool(getattr(track, "has_midi_input", False)),
+            "has_audio_input": bool(getattr(track, "has_audio_input", False)),
+        }
+
+    # 函数作用：执行 track at index 相关逻辑。
     def _track_at_index(self, track_index):
         if track_index < 0 or track_index >= len(self._song.tracks):
             raise IndexError("Track index out of range: {0}".format(track_index))
         return self._song.tracks[track_index]
 
+    # 函数作用：执行 require midi track 相关逻辑。
     def _require_midi_track(self, track_index):
         track = self._track_at_index(track_index)
         if not bool(getattr(track, "has_midi_input", False)):
@@ -445,6 +634,20 @@ class NinaRustBridge(ControlSurface):
             )
         return track
 
+    # 函数作用：执行 require audio track 相关逻辑。
+    def _require_audio_track(self, track_index):
+        track = self._track_at_index(track_index)
+        if bool(getattr(track, "has_midi_input", False)) or not bool(
+            getattr(track, "has_audio_input", False)
+        ):
+            raise ValueError(
+                "Track {0} '{1}' is not an audio track".format(
+                    track_index, getattr(track, "name", "")
+                )
+            )
+        return track
+
+    # 函数作用：执行 bar range to beats 相关逻辑。
     def _bar_range_to_beats(self, start_bar, end_bar):
         if start_bar < 1:
             raise ValueError("start_bar must be at least 1")
@@ -457,11 +660,13 @@ class NinaRustBridge(ControlSurface):
         length = float((end_bar - start_bar) * beats_per_bar)
         return start_time, length
 
+    # 函数作用：执行 resolve created arrangement clip 相关逻辑。
     def _resolve_created_arrangement_clip(self, track, created_clip, start_time):
         if created_clip is not None:
             return created_clip
         return self._find_arrangement_clip_at(track, start_time)
 
+    # 函数作用：执行 find arrangement clip at 相关逻辑。
     def _find_arrangement_clip_at(self, track, start_time):
         for clip in getattr(track, "arrangement_clips", []):
             try:
@@ -471,6 +676,7 @@ class NinaRustBridge(ControlSurface):
                 continue
         return None
 
+    # 函数作用：执行 iter arrangement midi clips 相关逻辑。
     def _iter_arrangement_midi_clips(self, track):
         clips = []
         for clip in getattr(track, "arrangement_clips", []) or []:
@@ -479,6 +685,7 @@ class NinaRustBridge(ControlSurface):
         clips.sort(key=lambda clip: self._safe_float(getattr(clip, "start_time", 0.0)) or 0.0)
         return clips
 
+    # 函数作用：执行 midi clip range result 相关逻辑。
     def _midi_clip_range_result(
         self,
         track_index,
@@ -505,6 +712,66 @@ class NinaRustBridge(ControlSurface):
             "is_midi_clip": is_midi_clip,
         }
 
+    # 函数作用：执行 audio import result 相关逻辑。
+    def _audio_import_result(self, track_index, track, clip, file_path, destination_time):
+        clip_name = None
+        is_audio_clip = True
+        if clip is not None:
+            clip_name = getattr(clip, "name", None)
+            is_audio_clip = bool(getattr(clip, "is_audio_clip", True))
+        return {
+            "track_index": track_index,
+            "track_name": getattr(track, "name", ""),
+            "file_path": file_path,
+            "destination_time": float(destination_time),
+            "clip_name": clip_name,
+            "is_audio_clip": is_audio_clip,
+        }
+
+    # 函数作用：执行 audio clip summaries 相关逻辑。
+    def _audio_clip_summaries(self, track):
+        summaries = []
+        for clip in getattr(track, "arrangement_clips", []) or []:
+            if bool(getattr(clip, "is_audio_clip", False)):
+                summaries.append(self._audio_clip_summary(len(summaries), clip))
+        return summaries
+
+    # 函数作用：执行 audio clip summary 相关逻辑。
+    def _audio_clip_summary(self, index, clip):
+        return {
+            "index": index,
+            "name": self._safe_text(getattr(clip, "name", "")),
+            "file_path": self._safe_optional_text(getattr(clip, "file_path", None)),
+            "start_time": self._safe_float(getattr(clip, "start_time", 0.0)) or 0.0,
+            "length": self._safe_float(getattr(clip, "length", 0.0)) or 0.0,
+            "is_audio_clip": bool(getattr(clip, "is_audio_clip", False)),
+        }
+
+    # 函数作用：执行 audio clip at index 相关逻辑。
+    def _audio_clip_at_index(self, track, clip_index):
+        if clip_index < 0:
+            raise IndexError("clip_index must be non-negative")
+        clips = [
+            clip
+            for clip in getattr(track, "arrangement_clips", []) or []
+            if bool(getattr(clip, "is_audio_clip", False))
+        ]
+        if clip_index >= len(clips):
+            raise IndexError("Audio clip index out of range: {0}".format(clip_index))
+        return clips[clip_index]
+
+    # 函数作用：执行 audio to midi conversion type 相关逻辑。
+    def _audio_to_midi_conversion_type(self, audio_to_midi_type, mode):
+        mode_map = {
+            "drums": "drums_to_midi",
+            "melody": "melody_to_midi",
+            "harmony": "harmony_to_midi",
+        }
+        if mode not in mode_map:
+            raise ValueError("mode must be one of: drums, melody, harmony")
+        return getattr(audio_to_midi_type, mode_map[mode])
+
+    # 函数作用：执行 coerce midi note 相关逻辑。
     def _coerce_midi_note(self, note):
         pitch = int(note.get("pitch", 60))
         start = float(note.get("start", note.get("start_time", 0.0)))
@@ -513,6 +780,7 @@ class NinaRustBridge(ControlSurface):
         mute = bool(note.get("mute", False))
         return (pitch, start, duration, velocity, mute)
 
+    # 函数作用：读取 midi clip notes。
     def _read_midi_clip_notes(self, clip):
         raw_notes = self._try_read_midi_clip_notes(clip)
         notes = []
@@ -523,6 +791,7 @@ class NinaRustBridge(ControlSurface):
         notes.sort(key=lambda note: (float(note.get("start", 0.0)), int(note.get("pitch", 0))))
         return notes
 
+    # 函数作用：执行 try read midi clip notes 相关逻辑。
     def _try_read_midi_clip_notes(self, clip):
         length = self._safe_float(getattr(clip, "length", 0.0)) or 0.0
         attempts = (
@@ -540,6 +809,7 @@ class NinaRustBridge(ControlSurface):
                     continue
         return self._normalize_note_collection(getattr(clip, "notes", ()))
 
+    # 函数作用：执行 normalize note collection 相关逻辑。
     def _normalize_note_collection(self, raw_notes):
         if raw_notes is None:
             return []
@@ -549,6 +819,7 @@ class NinaRustBridge(ControlSurface):
             return list(raw_notes.values())
         return raw_notes
 
+    # 函数作用：执行 midi note summary 相关逻辑。
     def _midi_note_summary(self, raw_note):
         if isinstance(raw_note, dict):
             pitch = self._safe_int(raw_note.get("pitch"))
@@ -576,6 +847,7 @@ class NinaRustBridge(ControlSurface):
         mute = bool(getattr(raw_note, "mute", getattr(raw_note, "muted", False)))
         return self._build_note_summary(pitch, start, duration, velocity, mute)
 
+    # 函数作用：构建 note summary。
     def _build_note_summary(self, pitch, start, duration, velocity, mute):
         if pitch is None or start is None or duration is None or velocity is None:
             return None
@@ -587,6 +859,7 @@ class NinaRustBridge(ControlSurface):
             "mute": bool(mute),
         }
 
+    # 函数作用：执行 iter browser root 相关逻辑。
     def _iter_browser_root(self, root):
         if hasattr(root, "iter_children"):
             try:
@@ -598,6 +871,7 @@ class NinaRustBridge(ControlSurface):
         except Exception:
             return iter(())
 
+    # 函数作用：执行 browser item summary 相关逻辑。
     def _browser_item_summary(self, root_name, item):
         name = str(getattr(item, "name", ""))
         uri = getattr(item, "uri", None)
@@ -611,6 +885,7 @@ class NinaRustBridge(ControlSurface):
             "uri": uri,
         }
 
+    # 函数作用：执行 device summary 相关逻辑。
     def _device_summary(self, index, device, depth, include_parameters):
         raw_parameters = getattr(device, "parameters", []) or []
         parameters = []
@@ -640,6 +915,7 @@ class NinaRustBridge(ControlSurface):
             "chains": chains,
         }
 
+    # 函数作用：执行 device chain summary 相关逻辑。
     def _device_chain_summary(self, index, chain, depth, include_parameters):
         devices = []
         for device_index, device in enumerate(getattr(chain, "devices", []) or []):
@@ -658,6 +934,7 @@ class NinaRustBridge(ControlSurface):
             "devices": devices,
         }
 
+    # 函数作用：执行 drum rack summary 相关逻辑。
     def _drum_rack_summary(self, device_index, device, include_empty_pads):
         raw_pads = getattr(device, "drum_pads", []) or []
         pads = []
@@ -674,6 +951,7 @@ class NinaRustBridge(ControlSurface):
             "pads": pads,
         }
 
+    # 函数作用：执行 drum pad summary 相关逻辑。
     def _drum_pad_summary(self, index, pad):
         chains = []
         for chain_index, chain in enumerate(getattr(pad, "chains", []) or []):
@@ -691,6 +969,7 @@ class NinaRustBridge(ControlSurface):
             "chains": chains,
         }
 
+    # 函数作用：执行 drum pad chain summary 相关逻辑。
     def _drum_pad_chain_summary(self, index, chain):
         devices = []
         for device_index, device in enumerate(getattr(chain, "devices", []) or []):
@@ -705,6 +984,7 @@ class NinaRustBridge(ControlSurface):
             "devices": devices,
         }
 
+    # 函数作用：执行 drum pad device summary 相关逻辑。
     def _drum_pad_device_summary(self, index, device):
         class_name = self._safe_text(getattr(device, "class_name", ""))
         return {
@@ -714,6 +994,7 @@ class NinaRustBridge(ControlSurface):
             "role": self._device_role(device, class_name, 0),
         }
 
+    # 函数作用：执行 device parameter summary 相关逻辑。
     def _device_parameter_summary(self, index, parameter):
         value = self._safe_float(getattr(parameter, "value", None))
         return {
@@ -727,6 +1008,7 @@ class NinaRustBridge(ControlSurface):
             "is_quantized": bool(getattr(parameter, "is_quantized", False)),
         }
 
+    # 函数作用：执行 parameter display value 相关逻辑。
     def _parameter_display_value(self, parameter, value):
         display = getattr(parameter, "str_for_value", None)
         if callable(display):
@@ -736,6 +1018,7 @@ class NinaRustBridge(ControlSurface):
                 return None
         return self._safe_optional_text(display)
 
+    # 函数作用：执行 device role 相关逻辑。
     def _device_role(self, device, class_name, chain_count):
         device_type = self._safe_text(getattr(device, "type", ""))
         role_source = "{0} {1}".format(class_name, device_type).lower()
@@ -758,15 +1041,18 @@ class NinaRustBridge(ControlSurface):
             return "instrument"
         return "audio_effect"
 
+    # 函数作用：判断是否 drum rack device。
     def _is_drum_rack_device(self, device):
         class_name = self._safe_text(getattr(device, "class_name", ""))
         if "DrumGroupDevice" in class_name or "DrumRack" in class_name:
             return True
         return hasattr(device, "drum_pads")
 
+    # 函数作用：判断是否 used drum pad。
     def _is_used_drum_pad(self, summary):
         return bool(summary.get("name")) or int(summary.get("chain_count", 0)) > 0
 
+    # 函数作用：执行 drum role guess 相关逻辑。
     def _drum_role_guess(self, text):
         lowered = text.lower()
         if "kick" in lowered or "bd" in lowered:
@@ -787,6 +1073,7 @@ class NinaRustBridge(ControlSurface):
             return "tom"
         return "unknown"
 
+    # 函数作用：执行 midi note name 相关逻辑。
     def _midi_note_name(self, note):
         if note is None:
             return None
@@ -797,6 +1084,7 @@ class NinaRustBridge(ControlSurface):
             return None
         return "{0}{1}".format(names[value % 12], int(value / 12) - 2)
 
+    # 函数作用：执行 safe float 相关逻辑。
     def _safe_float(self, value):
         if value is None:
             return None
@@ -805,6 +1093,7 @@ class NinaRustBridge(ControlSurface):
         except Exception:
             return None
 
+    # 函数作用：执行 safe int 相关逻辑。
     def _safe_int(self, value):
         if value is None:
             return None
@@ -813,6 +1102,7 @@ class NinaRustBridge(ControlSurface):
         except Exception:
             return None
 
+    # 函数作用：执行 safe text 相关逻辑。
     def _safe_text(self, value):
         if value is None:
             return ""
@@ -821,6 +1111,7 @@ class NinaRustBridge(ControlSurface):
         except Exception:
             return ""
 
+    # 函数作用：执行 safe optional text 相关逻辑。
     def _safe_optional_text(self, value):
         text = self._safe_text(value)
         if text == "":

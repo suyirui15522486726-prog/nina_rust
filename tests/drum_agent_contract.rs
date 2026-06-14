@@ -1,9 +1,12 @@
+// 本文件作用：定义项目契约测试，验证对应模块的公开行为。
+
 use nina_rust::drum::AgentDrumMap;
 use nina_rust::protocol::{
     DeviceTrackSummary, DrumPadChainSummary, DrumPadDeviceSummary, DrumPadSummary, DrumRackSummary,
     DrumTrackScanResult,
 };
 
+// 函数作用：执行 pad 相关逻辑。
 fn pad(index: usize, name: &str, note: u8, role_guess: &str) -> DrumPadSummary {
     DrumPadSummary {
         index,
@@ -28,6 +31,7 @@ fn pad(index: usize, name: &str, note: u8, role_guess: &str) -> DrumPadSummary {
     }
 }
 
+// 函数作用：执行 sample scan 相关逻辑。
 fn sample_scan() -> DrumTrackScanResult {
     DrumTrackScanResult {
         track: DeviceTrackSummary {
@@ -55,6 +59,7 @@ fn sample_scan() -> DrumTrackScanResult {
 }
 
 #[test]
+// 函数作用：执行 agent drum map preserves every pad and indexes multiple snares 相关逻辑。
 fn agent_drum_map_preserves_every_pad_and_indexes_multiple_snares() {
     let map = AgentDrumMap::from_scan_result(&sample_scan());
 

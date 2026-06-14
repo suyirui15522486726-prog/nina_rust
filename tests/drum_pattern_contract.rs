@@ -1,9 +1,12 @@
+// 本文件作用：定义项目契约测试，验证对应模块的公开行为。
+
 use nina_rust::drum::{AgentDrumMap, DrumPatternDocument};
 use nina_rust::protocol::{
     DeviceTrackSummary, DrumPadChainSummary, DrumPadDeviceSummary, DrumPadSummary, DrumRackSummary,
     DrumTrackScanResult,
 };
 
+// 函数作用：执行 pad 相关逻辑。
 fn pad(index: usize, name: &str, note: u8, role_guess: &str) -> DrumPadSummary {
     DrumPadSummary {
         index,
@@ -28,6 +31,7 @@ fn pad(index: usize, name: &str, note: u8, role_guess: &str) -> DrumPadSummary {
     }
 }
 
+// 函数作用：执行 agent map 相关逻辑。
 fn agent_map() -> AgentDrumMap {
     AgentDrumMap::from_scan_result(&DrumTrackScanResult {
         track: DeviceTrackSummary {
@@ -53,6 +57,7 @@ fn agent_map() -> AgentDrumMap {
 }
 
 #[test]
+// 函数作用：执行 drum pattern converts pad ids and notes to midi document 相关逻辑。
 fn drum_pattern_converts_pad_ids_and_notes_to_midi_document() {
     let pattern: DrumPatternDocument = serde_json::from_str(
         r#"{
@@ -83,6 +88,7 @@ fn drum_pattern_converts_pad_ids_and_notes_to_midi_document() {
 }
 
 #[test]
+// 函数作用：执行 drum pattern rejects unknown pad id 相关逻辑。
 fn drum_pattern_rejects_unknown_pad_id() {
     let pattern: DrumPatternDocument = serde_json::from_str(
         r#"{
@@ -103,6 +109,7 @@ fn drum_pattern_rejects_unknown_pad_id() {
 }
 
 #[test]
+// 函数作用：执行 drum pattern rejects notes not present in current rack 相关逻辑。
 fn drum_pattern_rejects_notes_not_present_in_current_rack() {
     let pattern: DrumPatternDocument = serde_json::from_str(
         r#"{
@@ -123,6 +130,7 @@ fn drum_pattern_rejects_notes_not_present_in_current_rack() {
 }
 
 #[test]
+// 函数作用：执行 drum pattern allows fractional beat positions inside a bar 相关逻辑。
 fn drum_pattern_allows_fractional_beat_positions_inside_a_bar() {
     let pattern: DrumPatternDocument = serde_json::from_str(
         r#"{

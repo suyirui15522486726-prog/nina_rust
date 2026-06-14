@@ -5,3 +5,8 @@ __pycache__/
 .idea/
 *.iml
 docs/superpowers/
+mcp-server/node_modules/
+mcp-server/dist/
+mcp-server/coverage/
+mcp-server/.env
+mcp-server/.env.local

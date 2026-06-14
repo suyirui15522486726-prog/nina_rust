@@ -142,6 +142,39 @@ cargo run -- media plan --lane stem-split --provider dry-run --input /absolute/p
 cargo run -- media status --manifest /absolute/path/stems/nina_media_manifest.json
 ```
 
+### v6.0 MCP Server
+
+定位：把 Rust CLI 中已经稳定的 Ableton / MIDI / Audio / Media 能力封装为 MCP tools，供后续大模型或 agent 通过结构化工具调用。
+
+当前 `feature/v6-mcp-server` 已加入：
+
+- `mcp-server/` TypeScript 工程。
+- `rustRunner.ts`：通过 `cargo run --quiet -- ...` 调用 Rust CLI，并解析 JSON 输出。
+- `tools/definitions.ts`：定义 29 个 Rust-backed MCP tools 的 Zod schema 和 CLI 参数映射。
+- `server.ts`：把 Rust-backed tools 注册到 `McpServer`。
+- `index.ts`：stdio MCP server 入口。
+- MCP tools 覆盖 live、track、clip、midi toolkit、browser、device、drum、audio、media provider。
+- TypeScript 测试覆盖 tool list、参数映射、Rust CLI runner、server factory。
+- 根目录 `README.md` 更新为 GitHub 首页说明，补充 v1-v6 演进和 MCP server 使用方法。
+
+示例：
+
+```bash
+cd mcp-server
+npm install
+npm run build
+npm test
+```
+
+MCP client 可通过 `node /absolute/path/to/nina_rust/mcp-server/dist/index.js` 启动本地 stdio server，并设置 `NINA_RUST_ROOT` 指向 Rust 项目根目录。
+
+当前边界：
+
+- v6 不直接接入真实大模型 API。
+- v6 不引入 LangGraph 状态机。
+- v6 不做自主 agent loop。
+- v6 只做稳定 MCP 工具层，后续版本再加入 tool router、hooks、human-in-the-loop 和 LangGraph。
+
 ### v3.0 课程最终版
 
 目标：

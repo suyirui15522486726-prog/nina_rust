@@ -17,7 +17,16 @@ pub fn default_json_output_path(input: &Path) -> PathBuf {
 
 pub fn export_document_to_smf(document: &MidiClipDocument, output: &Path) -> Result<(), SmfError> {
     document.validate(DEFAULT_BEATS_PER_BAR as u8)?;
-    let smf = document_to_smf(document)?;
+    let smf = notes_to_smf(&document.notes)?;
+    let mut bytes = Vec::new();
+    smf.write_std(&mut bytes)?;
+    fs::write(output, bytes)?;
+    Ok(())
+}
+
+pub fn export_notes_to_smf(notes: &[MidiNote], output: &Path) -> Result<(), SmfError> {
+    validate_notes_for_smf(notes)?;
+    let smf = notes_to_smf(notes)?;
     let mut bytes = Vec::new();
     smf.write_std(&mut bytes)?;
     fs::write(output, bytes)?;
@@ -61,9 +70,9 @@ pub fn import_smf_to_document(
     Ok(document)
 }
 
-fn document_to_smf(document: &MidiClipDocument) -> Result<Smf<'static>, SmfError> {
+fn notes_to_smf(notes: &[MidiNote]) -> Result<Smf<'static>, SmfError> {
     let mut events = Vec::new();
-    for note in &document.notes {
+    for note in notes {
         let start_tick = beat_to_tick(note.start)?;
         let end_tick = beat_to_tick(note.start + note.duration)?;
         events.push(TimedMidiEvent::note_on(
@@ -100,6 +109,20 @@ fn document_to_smf(document: &MidiClipDocument) -> Result<Smf<'static>, SmfError
         ),
         tracks: vec![track],
     })
+}
+
+fn validate_notes_for_smf(notes: &[MidiNote]) -> Result<(), SmfError> {
+    if notes.is_empty() {
+        return Err(SmfError::NoMidiNotes);
+    }
+    let clip_length = notes
+        .iter()
+        .map(|note| note.start + note.duration)
+        .fold(0.0, f64::max);
+    for (index, note) in notes.iter().enumerate() {
+        note.validate(index, clip_length)?;
+    }
+    Ok(())
 }
 
 fn first_note_track(smf: &Smf<'_>, ticks_per_beat: u16) -> Result<Vec<MidiNote>, SmfError> {

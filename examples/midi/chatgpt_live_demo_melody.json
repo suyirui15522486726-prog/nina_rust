@@ -1,0 +1,57 @@
+{
+  "version": 1,
+  "meta": {
+    "source": "chatgpt-generated demo",
+    "description": "Four-bar D minor melody for live Ableton demo",
+    "key": "D minor",
+    "bpm_hint": 132
+  },
+  "target": {
+    "track": 2,
+    "start_bar": 1,
+    "end_bar": 5,
+    "clip_name": "ChatGPT D Minor Demo"
+  },
+  "pattern": {
+    "style": "cold melodic garage",
+    "division": "1/16",
+    "comment": "The language model authored these notes; the Rust CLI validates and writes them."
+  },
+  "notes": [
+    { "pitch": 62, "start": 0.0, "duration": 0.5, "velocity": 94 },
+    { "pitch": 65, "start": 0.5, "duration": 0.25, "velocity": 82 },
+    { "pitch": 69, "start": 0.75, "duration": 0.75, "velocity": 101 },
+    { "pitch": 72, "start": 1.75, "duration": 0.25, "velocity": 76 },
+    { "pitch": 74, "start": 2.0, "duration": 0.5, "velocity": 96 },
+    { "pitch": 72, "start": 2.5, "duration": 0.25, "velocity": 80 },
+    { "pitch": 69, "start": 2.75, "duration": 0.5, "velocity": 91 },
+    { "pitch": 65, "start": 3.5, "duration": 0.5, "velocity": 84 },
+
+    { "pitch": 60, "start": 4.0, "duration": 0.5, "velocity": 88 },
+    { "pitch": 62, "start": 4.5, "duration": 0.25, "velocity": 80 },
+    { "pitch": 65, "start": 4.75, "duration": 0.75, "velocity": 98 },
+    { "pitch": 69, "start": 5.75, "duration": 0.25, "velocity": 78 },
+    { "pitch": 72, "start": 6.0, "duration": 0.5, "velocity": 92 },
+    { "pitch": 69, "start": 6.5, "duration": 0.25, "velocity": 81 },
+    { "pitch": 65, "start": 6.75, "duration": 0.5, "velocity": 86 },
+    { "pitch": 62, "start": 7.5, "duration": 0.5, "velocity": 82 },
+
+    { "pitch": 57, "start": 8.0, "duration": 0.5, "velocity": 86 },
+    { "pitch": 62, "start": 8.5, "duration": 0.25, "velocity": 84 },
+    { "pitch": 65, "start": 8.75, "duration": 0.25, "velocity": 91 },
+    { "pitch": 69, "start": 9.0, "duration": 0.75, "velocity": 102 },
+    { "pitch": 77, "start": 10.0, "duration": 0.25, "velocity": 90 },
+    { "pitch": 76, "start": 10.25, "duration": 0.25, "velocity": 78 },
+    { "pitch": 72, "start": 10.5, "duration": 0.5, "velocity": 88 },
+    { "pitch": 69, "start": 11.25, "duration": 0.5, "velocity": 84 },
+
+    { "pitch": 62, "start": 12.0, "duration": 0.5, "velocity": 92 },
+    { "pitch": 65, "start": 12.5, "duration": 0.25, "velocity": 83 },
+    { "pitch": 69, "start": 12.75, "duration": 0.5, "velocity": 97 },
+    { "pitch": 72, "start": 13.5, "duration": 0.25, "velocity": 76 },
+    { "pitch": 74, "start": 13.75, "duration": 0.25, "velocity": 82 },
+    { "pitch": 81, "start": 14.0, "duration": 0.5, "velocity": 104 },
+    { "pitch": 77, "start": 14.75, "duration": 0.25, "velocity": 88 },
+    { "pitch": 74, "start": 15.0, "duration": 1.0, "velocity": 96 }
+  ]
+}

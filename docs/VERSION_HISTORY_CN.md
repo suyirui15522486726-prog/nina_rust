@@ -76,6 +76,39 @@ cargo run -- midi import --input /path/to/demo.mid --track 2 --start-bar 1
 /path/to/demo.json
 ```
 
+### v4.0 Browser Index / Sound Library Layer
+
+定位：音色库索引层。它不负责作曲生成，而是把 Ableton Browser 的一级扫描结果保存成本地 JSON，随后支持离线搜索和随机选择。
+
+当前 `feature/v4-browser-index` 已加入：
+
+- `browser index`：调用 Remote Script 扫描 Ableton Browser 根分类，并保存成本地索引 JSON。
+- `browser search`：读取本地索引 JSON，按 query token 搜索 name、path、tags。
+- `browser random`：读取本地索引 JSON，按 seed 做可复现随机选择。
+- `src/browser/` 分层：`index.rs`、`search.rs`、`random.rs`。
+- `tests/browser_index_contract.rs`：覆盖索引建立、读写、搜索、过滤和随机选择。
+- `live watch`：持续轮询 Ableton snapshot，输出状态变化事件。
+- `live diff`：对比两个 snapshot JSON 文件，识别 tempo、播放状态、轨道变化。
+- `src/live/` 分层：`event.rs`、`diff.rs`、`recorder.rs`、`watcher.rs`。
+- `tests/live_watch_contract.rs`：覆盖 snapshot diff、JSONL recorder、watch loop。
+- `device scan`：扫描指定 track 上挂载的 MIDI effect、Instrument/Rack、Audio effect。
+- Device Chain Inspector 默认返回 device 摘要、参数数量和 Rack chains 摘要。
+- `device scan --include-parameters` 会展开完整参数列表和显示值，但当前只读，不修改参数。
+- `drum scan`：扫描 Drum Rack 的 pad/note 映射，识别 kick、snare、hat 等角色，供后续大模型编鼓使用。
+
+示例：
+
+```bash
+cargo run -- browser index --root sounds --limit 200 --output .nina/sounds_index.json
+cargo run -- browser search --index .nina/sounds_index.json --query "cold pad" --limit 10
+cargo run -- browser random --index .nina/sounds_index.json --seed 42 --loadable-only
+cargo run -- live watch --interval-ms 1000 --count 10
+cargo run -- live diff --before .nina/snapshot_before.json --after .nina/snapshot_after.json
+cargo run -- device scan --track 2
+cargo run -- device scan --track 2 --include-parameters
+cargo run -- drum scan --track 2
+```
+
 ### v3.0 课程最终版
 
 目标：

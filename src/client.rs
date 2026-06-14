@@ -7,10 +7,11 @@ use thiserror::Error;
 
 use crate::protocol::{
     BridgeHealth, BrowserScanRootParams, BrowserScanRootResult, CommandEnvelope, CommandPayload,
-    CreateMidiClipRangeParams, CreateMidiTrackParams, CreateTrackResult, HealthParams,
-    LiveSetSnapshot, MidiClipRangeResult, RemoteResponse, ResponseStatus, SnapshotParams,
-    StartPlaybackParams, StopPlaybackParams, TempoParams, TempoResult, TransportResult,
-    WriteMidiClipParams, WriteMidiClipResult,
+    CreateMidiClipRangeParams, CreateMidiTrackParams, CreateTrackResult, DeviceScanTrackParams,
+    DeviceTrackScanResult, DrumScanTrackParams, DrumTrackScanResult, HealthParams, LiveSetSnapshot,
+    MidiClipRangeResult, RemoteResponse, ResponseStatus, SnapshotParams, StartPlaybackParams,
+    StopPlaybackParams, TempoParams, TempoResult, TrackMidiExportParams, TrackMidiExportResult,
+    TransportResult, WriteMidiClipParams, WriteMidiClipResult,
 };
 
 #[derive(Debug, Error)]
@@ -139,6 +140,27 @@ where
         &self,
         params: BrowserScanRootParams,
     ) -> Result<BrowserScanRootResult, ClientError> {
+        self.request(params)
+    }
+
+    pub fn device_scan_track(
+        &self,
+        params: DeviceScanTrackParams,
+    ) -> Result<DeviceTrackScanResult, ClientError> {
+        self.request(params)
+    }
+
+    pub fn drum_scan_track(
+        &self,
+        params: DrumScanTrackParams,
+    ) -> Result<DrumTrackScanResult, ClientError> {
+        self.request(params)
+    }
+
+    pub fn export_midi_track(
+        &self,
+        params: TrackMidiExportParams,
+    ) -> Result<TrackMidiExportResult, ClientError> {
         self.request(params)
     }
 

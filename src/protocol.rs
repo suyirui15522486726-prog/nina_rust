@@ -12,6 +12,9 @@ pub enum CommandType {
     CreateMidiClipRange,
     WriteMidiClip,
     BrowserScanRoot,
+    DeviceScanTrack,
+    DrumScanTrack,
+    ExportMidiTrack,
 }
 
 impl CommandType {
@@ -26,6 +29,9 @@ impl CommandType {
             Self::CreateMidiClipRange => "create_midi_clip_range",
             Self::WriteMidiClip => "write_midi_clip",
             Self::BrowserScanRoot => "browser_scan_root",
+            Self::DeviceScanTrack => "device_scan_track",
+            Self::DrumScanTrack => "drum_scan_track",
+            Self::ExportMidiTrack => "export_midi_track",
         }
     }
 }
@@ -239,6 +245,75 @@ impl CommandPayload for BrowserScanRootParams {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+pub struct DeviceScanTrackParams {
+    track_index: usize,
+    include_parameters: bool,
+}
+
+impl DeviceScanTrackParams {
+    pub fn new(track_index: usize) -> Self {
+        Self {
+            track_index,
+            include_parameters: false,
+        }
+    }
+
+    pub fn with_include_parameters(mut self, include_parameters: bool) -> Self {
+        self.include_parameters = include_parameters;
+        self
+    }
+}
+
+impl CommandPayload for DeviceScanTrackParams {
+    fn command_type(&self) -> CommandType {
+        CommandType::DeviceScanTrack
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+pub struct DrumScanTrackParams {
+    track_index: usize,
+    include_empty_pads: bool,
+}
+
+impl DrumScanTrackParams {
+    pub fn new(track_index: usize) -> Self {
+        Self {
+            track_index,
+            include_empty_pads: false,
+        }
+    }
+
+    pub fn with_include_empty_pads(mut self, include_empty_pads: bool) -> Self {
+        self.include_empty_pads = include_empty_pads;
+        self
+    }
+}
+
+impl CommandPayload for DrumScanTrackParams {
+    fn command_type(&self) -> CommandType {
+        CommandType::DrumScanTrack
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+pub struct TrackMidiExportParams {
+    track_index: usize,
+}
+
+impl TrackMidiExportParams {
+    pub fn new(track_index: usize) -> Self {
+        Self { track_index }
+    }
+}
+
+impl CommandPayload for TrackMidiExportParams {
+    fn command_type(&self) -> CommandType {
+        CommandType::ExportMidiTrack
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum ResponseStatus {
@@ -335,4 +410,118 @@ pub struct BrowserItemSummary {
     pub is_folder: bool,
     pub is_loadable: bool,
     pub uri: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+pub struct DeviceTrackScanResult {
+    pub track: DeviceTrackSummary,
+    pub devices: Vec<DeviceSummary>,
+    pub device_count: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+pub struct DeviceTrackSummary {
+    pub index: usize,
+    pub name: String,
+    pub has_midi_input: bool,
+    pub has_audio_input: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+pub struct DeviceSummary {
+    pub index: usize,
+    pub name: String,
+    pub class_name: String,
+    pub role: String,
+    pub is_rack: bool,
+    pub parameter_count: usize,
+    pub chain_count: usize,
+    pub parameters: Vec<DeviceParameterSummary>,
+    pub chains: Vec<DeviceChainSummary>,
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+pub struct DeviceParameterSummary {
+    pub index: usize,
+    pub name: String,
+    pub value: Option<f64>,
+    pub min: Option<f64>,
+    pub max: Option<f64>,
+    pub display_value: Option<String>,
+    pub is_enabled: bool,
+    pub is_quantized: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+pub struct DeviceChainSummary {
+    pub index: usize,
+    pub name: String,
+    pub device_count: usize,
+    pub devices: Vec<DeviceSummary>,
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+pub struct DrumTrackScanResult {
+    pub track: DeviceTrackSummary,
+    pub rack_count: usize,
+    pub racks: Vec<DrumRackSummary>,
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+pub struct DrumRackSummary {
+    pub device_index: usize,
+    pub name: String,
+    pub class_name: String,
+    pub pad_count: usize,
+    pub used_pad_count: usize,
+    pub pads: Vec<DrumPadSummary>,
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+pub struct DrumPadSummary {
+    pub index: usize,
+    pub name: String,
+    pub note: Option<u8>,
+    pub note_name: Option<String>,
+    pub role_guess: String,
+    pub chain_count: usize,
+    pub chains: Vec<DrumPadChainSummary>,
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+pub struct DrumPadChainSummary {
+    pub index: usize,
+    pub name: String,
+    pub out_note: Option<u8>,
+    pub out_note_name: Option<String>,
+    pub device_count: usize,
+    pub devices: Vec<DrumPadDeviceSummary>,
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+pub struct DrumPadDeviceSummary {
+    pub index: usize,
+    pub name: String,
+    pub class_name: String,
+    pub role: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+pub struct TrackMidiExportResult {
+    pub track: DeviceTrackSummary,
+    pub clip_count: usize,
+    pub note_count: usize,
+    pub start_beat: f64,
+    pub end_beat: f64,
+    pub clips: Vec<TrackMidiExportedClip>,
+    pub notes: Vec<ProtocolMidiNote>,
+}
+
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+pub struct TrackMidiExportedClip {
+    pub index: usize,
+    pub name: Option<String>,
+    pub start_time: f64,
+    pub length: f64,
+    pub note_count: usize,
 }

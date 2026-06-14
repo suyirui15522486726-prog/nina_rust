@@ -8,11 +8,16 @@ working Rust-to-Ableton control path before adding larger composition features.
 
 - Connect to `NinaRustBridge` on `127.0.0.1:9878`.
 - Read Ableton health and Live Set snapshots.
+- Watch Live Set snapshot changes and write JSONL event logs.
 - Control tempo and transport.
+- Inspect track device chains, parameters, and rack chains.
+- Inspect Drum Rack pad-to-MIDI-note maps for beat generation workflows.
 - Create arrangement MIDI clips by track and bar range.
 - Write explicit MIDI JSON notes into Ableton clips.
 - Scan first-level Ableton browser roots such as `sounds`, `instruments`, and
   `drums`.
+- Save Ableton browser scans as local index JSON files, then search or randomly
+  choose indexed items offline.
 
 ## Project Structure
 
@@ -21,6 +26,8 @@ src/
   cli.rs          CLI commands and user input validation
   client.rs       TCP transport and typed Ableton client
   protocol.rs     JSON command/response DTOs
+  browser/        Browser index, search, and random selection
+  live/           Live snapshot diff, watch, and JSONL recording
   engine/         MIDI document and time validation
 remote_scripts/
   NinaRustBridge/ Ableton Remote Script bridge
@@ -54,7 +61,16 @@ Then run:
 ```bash
 cargo run -- live health
 cargo run -- live snapshot
+cargo run -- live watch --interval-ms 1000 --count 10
+cargo run -- live watch --interval-ms 1000 --count 60 --output .nina/live_watch.jsonl
+cargo run -- live diff --before .nina/snapshot_before.json --after .nina/snapshot_after.json
+cargo run -- device scan --track 2
+cargo run -- device scan --track 2 --include-parameters
+cargo run -- drum scan --track 2
 cargo run -- browser scan --root sounds --limit 10
+cargo run -- browser index --root sounds --limit 200 --output .nina/sounds_index.json
+cargo run -- browser search --index .nina/sounds_index.json --query "cold pad" --limit 10
+cargo run -- browser random --index .nina/sounds_index.json --seed 42 --loadable-only
 cargo run -- track create-midi --name "LLM Synth"
 cargo run -- midi validate --file examples/midi/strudel_inspired_phrase.json
 cargo run -- midi preview --file examples/midi/strudel_inspired_phrase.json
@@ -98,4 +114,10 @@ Current v3 development branch:
 
 ```text
 feature/v3-midi-toolkit
+```
+
+Current v4 development branch:
+
+```text
+feature/v4-browser-index
 ```

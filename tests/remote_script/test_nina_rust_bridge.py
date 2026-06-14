@@ -25,6 +25,61 @@ class FakeTrack:
         return clip
 
 
+class FakeParameter:
+    def __init__(
+        self,
+        name,
+        value=0.0,
+        min_value=0.0,
+        max_value=1.0,
+        display_value=None,
+        is_enabled=True,
+        is_quantized=False,
+    ):
+        self.name = name
+        self.value = value
+        self.min = min_value
+        self.max = max_value
+        self._display_value = display_value or str(value)
+        self.is_enabled = is_enabled
+        self.is_quantized = is_quantized
+
+    def str_for_value(self, _value):
+        return self._display_value
+
+
+class FakeDevice:
+    def __init__(
+        self,
+        name,
+        class_name,
+        parameters=None,
+        chains=None,
+        device_type=None,
+        drum_pads=None,
+    ):
+        self.name = name
+        self.class_name = class_name
+        self.parameters = list(parameters or [])
+        self.chains = list(chains or [])
+        self.type = device_type
+        self.drum_pads = list(drum_pads or [])
+
+
+class FakeChain:
+    def __init__(self, name, devices=None, out_note=None):
+        self.name = name
+        self.devices = list(devices or [])
+        self.out_note = out_note
+
+
+class FakeDrumPad:
+    def __init__(self, name, note, chains=None):
+        self.name = name
+        self.note = note
+        self.chains = list(chains or [])
+
+
 class FakeArrangementClip:
     def __init__(self, start_time, length):
         self.start_time = start_time
@@ -35,6 +90,9 @@ class FakeArrangementClip:
 
     def set_notes(self, notes):
         self.notes = notes
+
+    def get_notes(self, _start_time, _pitch, _time_span, _pitch_span):
+        return self.notes
 
 
 class FakeSong:
@@ -279,6 +337,37 @@ class NinaRustBridgeTests(unittest.TestCase):
         self.assertEqual(clip.notes[0], (48, 0.0, 0.5, 100, False))
         self.assertEqual(clip.notes[1], (55, 0.5, 0.5, 90, False))
 
+    def test_export_midi_track_returns_all_arrangement_clip_notes_on_track_timeline(self):
+        module = load_bridge_module()
+        bridge = module.NinaRustBridge.__new__(module.NinaRustBridge)
+        bridge._main_thread_id = threading.current_thread().ident
+        bridge._song = FakeSong()
+
+        intro = FakeArrangementClip(0.0, 4.0)
+        intro.name = "Intro"
+        intro.set_notes(
+            (
+                (36, 0.0, 0.5, 110, False),
+                (38, 1.0, 0.5, 96, False),
+            )
+        )
+        drop = FakeArrangementClip(8.0, 2.0)
+        drop.name = "Drop"
+        drop.set_notes(((42, 0.0, 0.25, 76, False),))
+        bridge._song.tracks[1].arrangement_clips = [intro, drop]
+
+        response = bridge._process_command(
+            {"type": "export_midi_track", "params": {"track_index": 1}}
+        )
+
+        self.assertEqual(response["status"], "success")
+        self.assertEqual(response["result"]["track"]["name"], "Bass")
+        self.assertEqual(response["result"]["clip_count"], 2)
+        self.assertEqual(response["result"]["note_count"], 3)
+        self.assertEqual([note["start"] for note in response["result"]["notes"]], [0.0, 1.0, 8.0])
+        self.assertEqual(response["result"]["clips"][1]["name"], "Drop")
+        self.assertEqual(response["result"]["end_beat"], 10.0)
+
     def test_create_midi_track_inserts_named_track(self):
         module = load_bridge_module()
         bridge = module.NinaRustBridge.__new__(module.NinaRustBridge)
@@ -315,6 +404,159 @@ class NinaRustBridgeTests(unittest.TestCase):
         self.assertEqual(response["result"]["truncated"], True)
         self.assertEqual(response["result"]["items"][0]["name"], "Cold Synths")
         self.assertEqual(response["result"]["items"][0]["path"], "sounds/Cold Synths")
+
+    def test_device_scan_track_returns_device_chain_overview(self):
+        module = load_bridge_module()
+        bridge = module.NinaRustBridge.__new__(module.NinaRustBridge)
+        bridge._main_thread_id = threading.current_thread().ident
+        bridge._song = FakeSong()
+        bridge._song.tracks[1].devices = [
+            FakeDevice(
+                "Scale",
+                "MidiScale",
+                parameters=[FakeParameter("Device On", 1.0, display_value="On")],
+            ),
+            FakeDevice(
+                "12 String Chords Guitar",
+                "InstrumentGroupDevice",
+                parameters=[
+                    FakeParameter("Device On", 1.0, display_value="On"),
+                    FakeParameter("Mass", 0.88, display_value="88 %"),
+                ],
+                chains=[
+                    FakeChain(
+                        "Hammer",
+                        devices=[
+                            FakeDevice(
+                                "Hammer Body",
+                                "Collision",
+                                parameters=[FakeParameter("Damping", 0.7, display_value="70 %")],
+                            )
+                        ],
+                    )
+                ],
+            ),
+            FakeDevice(
+                "Reverb",
+                "Reverb",
+                parameters=[FakeParameter("Dry/Wet", 0.32, display_value="32 %")],
+            ),
+        ]
+
+        response = bridge._process_command(
+            {"type": "device_scan_track", "params": {"track_index": 1}}
+        )
+
+        self.assertEqual(response["status"], "success")
+        self.assertEqual(response["result"]["track"]["name"], "Bass")
+        self.assertEqual(response["result"]["device_count"], 3)
+        self.assertEqual(response["result"]["devices"][0]["role"], "midi_effect")
+        self.assertEqual(response["result"]["devices"][1]["role"], "instrument_rack")
+        self.assertEqual(response["result"]["devices"][1]["parameter_count"], 2)
+        self.assertEqual(response["result"]["devices"][1]["chain_count"], 1)
+        self.assertEqual(response["result"]["devices"][1]["parameters"], [])
+        self.assertEqual(response["result"]["devices"][1]["chains"][0]["name"], "Hammer")
+        self.assertEqual(
+            response["result"]["devices"][1]["chains"][0]["devices"][0]["class_name"],
+            "Collision",
+        )
+        self.assertEqual(
+            response["result"]["devices"][1]["chains"][0]["devices"][0]["parameters"], []
+        )
+        self.assertEqual(response["result"]["devices"][2]["role"], "audio_effect")
+
+    def test_device_scan_track_can_include_parameter_values(self):
+        module = load_bridge_module()
+        bridge = module.NinaRustBridge.__new__(module.NinaRustBridge)
+        bridge._main_thread_id = threading.current_thread().ident
+        bridge._song = FakeSong()
+        bridge._song.tracks[1].devices = [
+            FakeDevice(
+                "12 String Chords Guitar",
+                "InstrumentGroupDevice",
+                parameters=[
+                    FakeParameter("Device On", 1.0, display_value="On"),
+                    FakeParameter("Mass", 0.88, display_value="88 %"),
+                ],
+            )
+        ]
+
+        response = bridge._process_command(
+            {
+                "type": "device_scan_track",
+                "params": {"track_index": 1, "include_parameters": True},
+            }
+        )
+
+        self.assertEqual(response["status"], "success")
+        self.assertEqual(response["result"]["devices"][0]["parameter_count"], 2)
+        self.assertEqual(response["result"]["devices"][0]["parameters"][1]["name"], "Mass")
+        self.assertEqual(
+            response["result"]["devices"][0]["parameters"][1]["display_value"], "88 %"
+        )
+
+    def test_drum_scan_track_returns_used_pad_note_map(self):
+        module = load_bridge_module()
+        bridge = module.NinaRustBridge.__new__(module.NinaRustBridge)
+        bridge._main_thread_id = threading.current_thread().ident
+        bridge._song = FakeSong()
+        bridge._song.tracks[1].devices = [
+            FakeDevice(
+                "UKG Kit",
+                "DrumGroupDevice",
+                drum_pads=[
+                    FakeDrumPad(
+                        "Kick",
+                        36,
+                        chains=[
+                            FakeChain(
+                                "Kick",
+                                devices=[FakeDevice("Kick Simpler", "OriginalSimpler")],
+                                out_note=36,
+                            )
+                        ],
+                    ),
+                    FakeDrumPad(
+                        "Snare",
+                        38,
+                        chains=[
+                            FakeChain(
+                                "Snare",
+                                devices=[FakeDevice("Snare Simpler", "OriginalSimpler")],
+                                out_note=38,
+                            )
+                        ],
+                    ),
+                    FakeDrumPad(
+                        "Closed Hat",
+                        42,
+                        chains=[
+                            FakeChain(
+                                "Closed Hat",
+                                devices=[FakeDevice("Hat Simpler", "OriginalSimpler")],
+                                out_note=42,
+                            )
+                        ],
+                    ),
+                    FakeDrumPad("", 43, chains=[]),
+                ],
+            )
+        ]
+
+        response = bridge._process_command(
+            {"type": "drum_scan_track", "params": {"track_index": 1}}
+        )
+
+        self.assertEqual(response["status"], "success")
+        self.assertEqual(response["result"]["track"]["name"], "Bass")
+        self.assertEqual(response["result"]["rack_count"], 1)
+        rack = response["result"]["racks"][0]
+        self.assertEqual(rack["name"], "UKG Kit")
+        self.assertEqual(rack["used_pad_count"], 3)
+        self.assertEqual([pad["role_guess"] for pad in rack["pads"]], ["kick", "snare", "closed_hat"])
+        self.assertEqual([pad["note"] for pad in rack["pads"]], [36, 38, 42])
+        self.assertEqual([pad["note_name"] for pad in rack["pads"]], ["C1", "D1", "F#1"])
+        self.assertEqual(rack["pads"][0]["chains"][0]["devices"][0]["name"], "Kick Simpler")
 
 
 if __name__ == "__main__":

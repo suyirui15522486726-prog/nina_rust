@@ -1,0 +1,52 @@
+{
+  "version": 1,
+  "meta": {
+    "source": "example pattern for agent-readable Drum Rack maps",
+    "style": "uk-garage",
+    "note": "Use drum scan --format agent first, then adjust pad_id or note values to match your current Drum Rack."
+  },
+  "target": {
+    "track": 2,
+    "start_bar": 1,
+    "end_bar": 5,
+    "clip_name": "UKG Beat From Drum Map"
+  },
+  "events": [
+    { "note": 36, "bar": 1, "beat": 1.0, "duration": 0.25, "velocity": 112 },
+    { "note": 38, "bar": 1, "beat": 2.0, "duration": 0.25, "velocity": 98 },
+    { "note": 36, "bar": 1, "beat": 3.5, "duration": 0.25, "velocity": 102 },
+    { "note": 38, "bar": 1, "beat": 4.0, "duration": 0.25, "velocity": 106 },
+    { "note": 42, "bar": 1, "beat": 1.5, "duration": 0.125, "velocity": 72 },
+    { "note": 42, "bar": 1, "beat": 2.5, "duration": 0.125, "velocity": 66 },
+    { "note": 42, "bar": 1, "beat": 3.0, "duration": 0.125, "velocity": 70 },
+    { "note": 46, "bar": 1, "beat": 4.5, "duration": 0.25, "velocity": 76 },
+
+    { "note": 36, "bar": 2, "beat": 1.0, "duration": 0.25, "velocity": 108 },
+    { "note": 38, "bar": 2, "beat": 2.0, "duration": 0.25, "velocity": 96 },
+    { "note": 36, "bar": 2, "beat": 3.25, "duration": 0.25, "velocity": 100 },
+    { "note": 38, "bar": 2, "beat": 4.0, "duration": 0.25, "velocity": 104 },
+    { "note": 42, "bar": 2, "beat": 1.5, "duration": 0.125, "velocity": 70 },
+    { "note": 42, "bar": 2, "beat": 2.75, "duration": 0.125, "velocity": 64 },
+    { "note": 42, "bar": 2, "beat": 3.5, "duration": 0.125, "velocity": 72 },
+    { "note": 46, "bar": 2, "beat": 4.5, "duration": 0.25, "velocity": 78 },
+
+    { "note": 36, "bar": 3, "beat": 1.0, "duration": 0.25, "velocity": 114 },
+    { "note": 38, "bar": 3, "beat": 2.0, "duration": 0.25, "velocity": 100 },
+    { "note": 36, "bar": 3, "beat": 3.5, "duration": 0.25, "velocity": 104 },
+    { "note": 38, "bar": 3, "beat": 4.0, "duration": 0.25, "velocity": 108 },
+    { "note": 42, "bar": 3, "beat": 1.5, "duration": 0.125, "velocity": 73 },
+    { "note": 42, "bar": 3, "beat": 2.5, "duration": 0.125, "velocity": 68 },
+    { "note": 42, "bar": 3, "beat": 3.0, "duration": 0.125, "velocity": 70 },
+    { "note": 46, "bar": 3, "beat": 4.5, "duration": 0.25, "velocity": 82 },
+
+    { "note": 36, "bar": 4, "beat": 1.0, "duration": 0.25, "velocity": 108 },
+    { "note": 38, "bar": 4, "beat": 2.0, "duration": 0.25, "velocity": 98 },
+    { "note": 36, "bar": 4, "beat": 3.25, "duration": 0.25, "velocity": 102 },
+    { "note": 38, "bar": 4, "beat": 4.0, "duration": 0.25, "velocity": 110 },
+    { "note": 42, "bar": 4, "beat": 1.5, "duration": 0.125, "velocity": 70 },
+    { "note": 42, "bar": 4, "beat": 2.75, "duration": 0.125, "velocity": 66 },
+    { "note": 42, "bar": 4, "beat": 3.5, "duration": 0.125, "velocity": 74 },
+    { "note": 46, "bar": 4, "beat": 4.5, "duration": 0.25, "velocity": 84 }
+  ]
+}
+

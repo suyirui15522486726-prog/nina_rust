@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "actions": [
+    {
+      "type": "create_midi_track",
+      "name": "Agent Drums",
+      "position": 2
+    },
+    {
+      "type": "create_clip",
+      "track": 2,
+      "start_bar": 1,
+      "end_bar": 5,
+      "name": "Empty Drum Clip"
+    },
+    {
+      "type": "write_drum_pattern",
+      "file": "../drums/ukg_beat_pattern.json"
+    }
+  ]
+}

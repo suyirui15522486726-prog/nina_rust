@@ -156,6 +156,9 @@ class NinaRustBridge(ControlSurface):
             "create_midi_clip_range": self._create_midi_clip_range,
             "write_midi_clip": self._write_midi_clip,
             "browser_scan_root": self._browser_scan_root,
+            "device_scan_track": self._device_scan_track,
+            "drum_scan_track": self._drum_scan_track,
+            "export_midi_track": self._export_midi_track,
         }
         if command_type not in handlers:
             return {
@@ -320,6 +323,103 @@ class NinaRustBridge(ControlSurface):
             "items": items,
         }
 
+    def _device_scan_track(self, params):
+        track_index = int(params.get("track_index", 0))
+        include_parameters = bool(params.get("include_parameters", False))
+        track = self._track_at_index(track_index)
+        devices = []
+        for index, device in enumerate(getattr(track, "devices", [])):
+            devices.append(
+                self._device_summary(
+                    index, device, depth=0, include_parameters=include_parameters
+                )
+            )
+        return {
+            "track": {
+                "index": track_index,
+                "name": getattr(track, "name", ""),
+                "has_midi_input": bool(getattr(track, "has_midi_input", False)),
+                "has_audio_input": bool(getattr(track, "has_audio_input", False)),
+            },
+            "devices": devices,
+            "device_count": len(devices),
+        }
+
+    def _drum_scan_track(self, params):
+        track_index = int(params.get("track_index", 0))
+        include_empty_pads = bool(params.get("include_empty_pads", False))
+        track = self._track_at_index(track_index)
+        racks = []
+        for index, device in enumerate(getattr(track, "devices", []) or []):
+            if self._is_drum_rack_device(device):
+                racks.append(self._drum_rack_summary(index, device, include_empty_pads))
+        return {
+            "track": {
+                "index": track_index,
+                "name": getattr(track, "name", ""),
+                "has_midi_input": bool(getattr(track, "has_midi_input", False)),
+                "has_audio_input": bool(getattr(track, "has_audio_input", False)),
+            },
+            "rack_count": len(racks),
+            "racks": racks,
+        }
+
+    def _export_midi_track(self, params):
+        track_index = int(params.get("track_index", 0))
+        track = self._require_midi_track(track_index)
+        clips = []
+        notes = []
+
+        for clip_index, clip in enumerate(self._iter_arrangement_midi_clips(track)):
+            clip_notes = self._read_midi_clip_notes(clip)
+            start_time = self._safe_float(getattr(clip, "start_time", 0.0)) or 0.0
+            length = self._safe_float(getattr(clip, "length", 0.0)) or 0.0
+            for note in clip_notes:
+                shifted = dict(note)
+                shifted["start"] = start_time + float(note.get("start", 0.0))
+                notes.append(shifted)
+            clips.append(
+                {
+                    "index": clip_index,
+                    "name": self._safe_optional_text(getattr(clip, "name", None)),
+                    "start_time": float(start_time),
+                    "length": float(length),
+                    "note_count": len(clip_notes),
+                }
+            )
+
+        notes.sort(key=lambda note: (float(note.get("start", 0.0)), int(note.get("pitch", 0))))
+        if clips:
+            start_beat = min(float(clip.get("start_time", 0.0)) for clip in clips)
+            end_beat = max(
+                float(clip.get("start_time", 0.0)) + float(clip.get("length", 0.0))
+                for clip in clips
+            )
+        elif notes:
+            start_beat = min(float(note.get("start", 0.0)) for note in notes)
+            end_beat = max(
+                float(note.get("start", 0.0)) + float(note.get("duration", 0.0))
+                for note in notes
+            )
+        else:
+            start_beat = 0.0
+            end_beat = 0.0
+
+        return {
+            "track": {
+                "index": track_index,
+                "name": getattr(track, "name", ""),
+                "has_midi_input": bool(getattr(track, "has_midi_input", False)),
+                "has_audio_input": bool(getattr(track, "has_audio_input", False)),
+            },
+            "clip_count": len(clips),
+            "note_count": len(notes),
+            "start_beat": float(start_beat),
+            "end_beat": float(end_beat),
+            "clips": clips,
+            "notes": notes,
+        }
+
     def _track_summary(self, index, track):
         return {
             "index": index,
@@ -371,6 +471,14 @@ class NinaRustBridge(ControlSurface):
                 continue
         return None
 
+    def _iter_arrangement_midi_clips(self, track):
+        clips = []
+        for clip in getattr(track, "arrangement_clips", []) or []:
+            if bool(getattr(clip, "is_midi_clip", False)):
+                clips.append(clip)
+        clips.sort(key=lambda clip: self._safe_float(getattr(clip, "start_time", 0.0)) or 0.0)
+        return clips
+
     def _midi_clip_range_result(
         self,
         track_index,
@@ -405,6 +513,80 @@ class NinaRustBridge(ControlSurface):
         mute = bool(note.get("mute", False))
         return (pitch, start, duration, velocity, mute)
 
+    def _read_midi_clip_notes(self, clip):
+        raw_notes = self._try_read_midi_clip_notes(clip)
+        notes = []
+        for raw_note in raw_notes:
+            note = self._midi_note_summary(raw_note)
+            if note is not None:
+                notes.append(note)
+        notes.sort(key=lambda note: (float(note.get("start", 0.0)), int(note.get("pitch", 0))))
+        return notes
+
+    def _try_read_midi_clip_notes(self, clip):
+        length = self._safe_float(getattr(clip, "length", 0.0)) or 0.0
+        attempts = (
+            ("get_notes_extended", (0, 128, 0.0, length)),
+            ("get_notes_extended", (0.0, 0, length, 128)),
+            ("get_notes", (0.0, 0, length, 128)),
+            ("get_notes", (0, 128, 0.0, length)),
+        )
+        for method_name, args in attempts:
+            method = getattr(clip, method_name, None)
+            if callable(method):
+                try:
+                    return self._normalize_note_collection(method(*args))
+                except Exception:
+                    continue
+        return self._normalize_note_collection(getattr(clip, "notes", ()))
+
+    def _normalize_note_collection(self, raw_notes):
+        if raw_notes is None:
+            return []
+        if isinstance(raw_notes, dict):
+            if "notes" in raw_notes:
+                return raw_notes.get("notes") or []
+            return list(raw_notes.values())
+        return raw_notes
+
+    def _midi_note_summary(self, raw_note):
+        if isinstance(raw_note, dict):
+            pitch = self._safe_int(raw_note.get("pitch"))
+            start = self._safe_float(raw_note.get("start", raw_note.get("start_time")))
+            duration = self._safe_float(raw_note.get("duration"))
+            velocity = self._safe_int(raw_note.get("velocity"))
+            mute = bool(raw_note.get("mute", raw_note.get("muted", False)))
+            return self._build_note_summary(pitch, start, duration, velocity, mute)
+        if isinstance(raw_note, (list, tuple)):
+            if len(raw_note) < 4:
+                return None
+            pitch = self._safe_int(raw_note[0])
+            start = self._safe_float(raw_note[1])
+            duration = self._safe_float(raw_note[2])
+            velocity = self._safe_int(raw_note[3])
+            mute = bool(raw_note[4]) if len(raw_note) > 4 else False
+            return self._build_note_summary(pitch, start, duration, velocity, mute)
+
+        pitch = self._safe_int(getattr(raw_note, "pitch", None))
+        start = self._safe_float(
+            getattr(raw_note, "start_time", getattr(raw_note, "start", None))
+        )
+        duration = self._safe_float(getattr(raw_note, "duration", None))
+        velocity = self._safe_int(getattr(raw_note, "velocity", None))
+        mute = bool(getattr(raw_note, "mute", getattr(raw_note, "muted", False)))
+        return self._build_note_summary(pitch, start, duration, velocity, mute)
+
+    def _build_note_summary(self, pitch, start, duration, velocity, mute):
+        if pitch is None or start is None or duration is None or velocity is None:
+            return None
+        return {
+            "pitch": int(pitch),
+            "start": float(start),
+            "duration": float(duration),
+            "velocity": int(velocity),
+            "mute": bool(mute),
+        }
+
     def _iter_browser_root(self, root):
         if hasattr(root, "iter_children"):
             try:
@@ -428,3 +610,219 @@ class NinaRustBridge(ControlSurface):
             "is_loadable": bool(getattr(item, "is_loadable", False)),
             "uri": uri,
         }
+
+    def _device_summary(self, index, device, depth, include_parameters):
+        raw_parameters = getattr(device, "parameters", []) or []
+        parameters = []
+        if include_parameters:
+            for parameter_index, parameter in enumerate(raw_parameters):
+                parameters.append(self._device_parameter_summary(parameter_index, parameter))
+
+        chains = []
+        if depth < 3:
+            for chain_index, chain in enumerate(getattr(device, "chains", []) or []):
+                chains.append(
+                    self._device_chain_summary(
+                        chain_index, chain, depth + 1, include_parameters
+                    )
+                )
+
+        class_name = self._safe_text(getattr(device, "class_name", None))
+        return {
+            "index": index,
+            "name": self._safe_text(getattr(device, "name", "")),
+            "class_name": class_name,
+            "role": self._device_role(device, class_name, len(chains)),
+            "is_rack": len(chains) > 0 or "GroupDevice" in class_name,
+            "parameter_count": len(raw_parameters),
+            "chain_count": len(chains),
+            "parameters": parameters,
+            "chains": chains,
+        }
+
+    def _device_chain_summary(self, index, chain, depth, include_parameters):
+        devices = []
+        for device_index, device in enumerate(getattr(chain, "devices", []) or []):
+            devices.append(
+                self._device_summary(
+                    device_index,
+                    device,
+                    depth=depth,
+                    include_parameters=include_parameters,
+                )
+            )
+        return {
+            "index": index,
+            "name": self._safe_text(getattr(chain, "name", "")),
+            "device_count": len(devices),
+            "devices": devices,
+        }
+
+    def _drum_rack_summary(self, device_index, device, include_empty_pads):
+        raw_pads = getattr(device, "drum_pads", []) or []
+        pads = []
+        for pad_index, pad in enumerate(raw_pads):
+            summary = self._drum_pad_summary(pad_index, pad)
+            if include_empty_pads or self._is_used_drum_pad(summary):
+                pads.append(summary)
+        return {
+            "device_index": device_index,
+            "name": self._safe_text(getattr(device, "name", "")),
+            "class_name": self._safe_text(getattr(device, "class_name", "")),
+            "pad_count": len(raw_pads),
+            "used_pad_count": len(pads),
+            "pads": pads,
+        }
+
+    def _drum_pad_summary(self, index, pad):
+        chains = []
+        for chain_index, chain in enumerate(getattr(pad, "chains", []) or []):
+            chains.append(self._drum_pad_chain_summary(chain_index, chain))
+        note = self._safe_int(getattr(pad, "note", None))
+        name = self._safe_text(getattr(pad, "name", ""))
+        role_text = " ".join([name] + [item.get("name", "") for item in chains])
+        return {
+            "index": index,
+            "name": name,
+            "note": note,
+            "note_name": self._midi_note_name(note),
+            "role_guess": self._drum_role_guess(role_text),
+            "chain_count": len(chains),
+            "chains": chains,
+        }
+
+    def _drum_pad_chain_summary(self, index, chain):
+        devices = []
+        for device_index, device in enumerate(getattr(chain, "devices", []) or []):
+            devices.append(self._drum_pad_device_summary(device_index, device))
+        out_note = self._safe_int(getattr(chain, "out_note", None))
+        return {
+            "index": index,
+            "name": self._safe_text(getattr(chain, "name", "")),
+            "out_note": out_note,
+            "out_note_name": self._midi_note_name(out_note),
+            "device_count": len(devices),
+            "devices": devices,
+        }
+
+    def _drum_pad_device_summary(self, index, device):
+        class_name = self._safe_text(getattr(device, "class_name", ""))
+        return {
+            "index": index,
+            "name": self._safe_text(getattr(device, "name", "")),
+            "class_name": class_name,
+            "role": self._device_role(device, class_name, 0),
+        }
+
+    def _device_parameter_summary(self, index, parameter):
+        value = self._safe_float(getattr(parameter, "value", None))
+        return {
+            "index": index,
+            "name": self._safe_text(getattr(parameter, "name", "")),
+            "value": value,
+            "min": self._safe_float(getattr(parameter, "min", None)),
+            "max": self._safe_float(getattr(parameter, "max", None)),
+            "display_value": self._parameter_display_value(parameter, value),
+            "is_enabled": bool(getattr(parameter, "is_enabled", True)),
+            "is_quantized": bool(getattr(parameter, "is_quantized", False)),
+        }
+
+    def _parameter_display_value(self, parameter, value):
+        display = getattr(parameter, "str_for_value", None)
+        if callable(display):
+            try:
+                return self._safe_optional_text(display(value))
+            except Exception:
+                return None
+        return self._safe_optional_text(display)
+
+    def _device_role(self, device, class_name, chain_count):
+        device_type = self._safe_text(getattr(device, "type", ""))
+        role_source = "{0} {1}".format(class_name, device_type).lower()
+        if chain_count > 0 or "groupdevice" in role_source or "rack" in role_source:
+            if "audio" in role_source:
+                return "audio_effect_rack"
+            if "midi" in role_source:
+                return "midi_effect_rack"
+            return "instrument_rack"
+        if "midi" in role_source:
+            return "midi_effect"
+        if "instrument" in role_source or class_name in (
+            "Operator",
+            "Wavetable",
+            "Simpler",
+            "Sampler",
+            "Collision",
+            "Tension",
+        ):
+            return "instrument"
+        return "audio_effect"
+
+    def _is_drum_rack_device(self, device):
+        class_name = self._safe_text(getattr(device, "class_name", ""))
+        if "DrumGroupDevice" in class_name or "DrumRack" in class_name:
+            return True
+        return hasattr(device, "drum_pads")
+
+    def _is_used_drum_pad(self, summary):
+        return bool(summary.get("name")) or int(summary.get("chain_count", 0)) > 0
+
+    def _drum_role_guess(self, text):
+        lowered = text.lower()
+        if "kick" in lowered or "bd" in lowered:
+            return "kick"
+        if "snare" in lowered or "sd" in lowered or "clap" in lowered or "rim" in lowered:
+            return "snare"
+        if "closed" in lowered and ("hat" in lowered or "hh" in lowered):
+            return "closed_hat"
+        if "open" in lowered and ("hat" in lowered or "hh" in lowered):
+            return "open_hat"
+        if "hat" in lowered or "hihat" in lowered or "hh" in lowered:
+            return "hat"
+        if "crash" in lowered:
+            return "crash"
+        if "ride" in lowered:
+            return "ride"
+        if "tom" in lowered:
+            return "tom"
+        return "unknown"
+
+    def _midi_note_name(self, note):
+        if note is None:
+            return None
+        names = ("C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B")
+        try:
+            value = int(note)
+        except Exception:
+            return None
+        return "{0}{1}".format(names[value % 12], int(value / 12) - 2)
+
+    def _safe_float(self, value):
+        if value is None:
+            return None
+        try:
+            return float(value)
+        except Exception:
+            return None
+
+    def _safe_int(self, value):
+        if value is None:
+            return None
+        try:
+            return int(value)
+        except Exception:
+            return None
+
+    def _safe_text(self, value):
+        if value is None:
+            return ""
+        try:
+            return str(value)
+        except Exception:
+            return ""
+
+    def _safe_optional_text(self, value):
+        text = self._safe_text(value)
+        if text == "":
+            return None
+        return text

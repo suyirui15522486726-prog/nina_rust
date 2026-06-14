@@ -109,6 +109,39 @@ cargo run -- device scan --track 2 --include-parameters
 cargo run -- drum scan --track 2
 ```
 
+### v5.0 Audio Layer
+
+定位：把 Nina 从 MIDI 控制扩展到音频轨和音频片段管理，同时保留清晰的 Ableton API 能力边界。
+
+当前 `feature/v5-audio-layer` 已加入：
+
+- `track create-audio`：创建 Ableton audio track。
+- `audio import`：把本地音频文件导入到指定 audio track 的 Arrangement 指定 bar 位置。
+- `audio effects`：扫描 audio track 的效果链，不默认展开参数值。
+- `audio clips`：扫描 audio track 上的 Arrangement audio clips，返回名称、文件路径、开始时间和长度。
+- `audio context`：合并 audio clips 与 audio effects，输出后续 agent/MCP 可消费的上下文 JSON。
+- `audio analyze-file`：本地分析音频文件路径、文件名、扩展名、格式猜测和文件大小，不连接 Ableton。
+- `audio to-midi`：调用 Ableton `Live.Conversions.audio_to_midi_clip`，实验性支持 drums / melody / harmony 三种转换模式。
+- `media plan`：为外部媒体 provider 生成 manifest，目前支持 `stem-split + dry-run`，用于约定 vocals/drums/bass/other 等 stem 输出。
+- `media status`：读取 manifest 并检查外部媒体 provider 的输出文件是否已经生成。
+- `src/audio/` 分层：本地音频文件校验、bar 到 Ableton beat time 的转换。
+- `src/media/` 分层：`MediaProvider` trait、media request/manifest/verification、manifest save/load。
+- 明确不伪装实现不稳定的 track audio export/render；stem separation 暂作为后续 provider 层规划。
+
+示例：
+
+```bash
+cargo run -- track create-audio --name "Printed Stems"
+cargo run -- audio import --track 3 --file /absolute/path/to/loop.wav --bar 5 --name "Loop Print"
+cargo run -- audio effects --track 3
+cargo run -- audio clips --track 3
+cargo run -- audio context --track 3
+cargo run -- audio analyze-file --file /absolute/path/to/loop.wav
+cargo run -- audio to-midi --track 3 --clip-index 1 --mode drums
+cargo run -- media plan --lane stem-split --provider dry-run --input /absolute/path/song.wav --output-dir /absolute/path/stems --stems vocals,drums,bass,other
+cargo run -- media status --manifest /absolute/path/stems/nina_media_manifest.json
+```
+
 ### v3.0 课程最终版
 
 目标：

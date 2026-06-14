@@ -1,3 +1,5 @@
+// 本文件作用：定义 Nina MIDI JSON 文档结构和校验规则。
+
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use thiserror::Error;
@@ -8,6 +10,7 @@ const MIDI_MAX: u16 = 127;
 const TIME_EPSILON: f64 = 0.000_001;
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+// 结构体作用：承载 Midi Clip Document 相关数据。
 pub struct MidiClipDocument {
     pub version: u8,
     #[serde(default)]
@@ -19,6 +22,7 @@ pub struct MidiClipDocument {
 }
 
 impl MidiClipDocument {
+    // 函数作用：校验输入数据是否满足业务约束。
     pub fn validate(&self, beats_per_bar: u8) -> Result<(), MidiValidationError> {
         if self.version != 1 {
             return Err(MidiValidationError::UnsupportedVersion(self.version));
@@ -45,6 +49,7 @@ impl MidiClipDocument {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
+// 结构体作用：承载 Midi Clip Target 相关数据。
 pub struct MidiClipTarget {
     pub track: usize,
     pub start_bar: u32,
@@ -54,6 +59,7 @@ pub struct MidiClipTarget {
 }
 
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+// 结构体作用：承载 Midi Note 相关数据。
 pub struct MidiNote {
     pub pitch: u16,
     pub start: f64,
@@ -64,6 +70,7 @@ pub struct MidiNote {
 }
 
 impl MidiNote {
+    // 函数作用：校验输入数据是否满足业务约束。
     pub fn validate(&self, index: usize, clip_length: f64) -> Result<(), MidiValidationError> {
         if self.pitch > MIDI_MAX {
             return Err(MidiValidationError::PitchOutOfRange {
@@ -102,6 +109,7 @@ impl MidiNote {
 }
 
 #[derive(Debug, Error, PartialEq)]
+// 枚举作用：列出 Midi Validation Error 的可选状态或命令。
 pub enum MidiValidationError {
     #[error("unsupported MIDI document version {0}; expected version 1")]
     UnsupportedVersion(u8),

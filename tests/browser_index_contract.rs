@@ -1,3 +1,5 @@
+// 本文件作用：定义项目契约测试，验证对应模块的公开行为。
+
 use std::fs;
 
 use nina_rust::browser::{
@@ -5,6 +7,7 @@ use nina_rust::browser::{
 };
 use nina_rust::protocol::{BrowserItemSummary, BrowserScanRootResult};
 
+// 函数作用：执行 sample scan 相关逻辑。
 fn sample_scan() -> BrowserScanRootResult {
     BrowserScanRootResult {
         root: "sounds".to_owned(),
@@ -44,6 +47,7 @@ fn sample_scan() -> BrowserScanRootResult {
 }
 
 #[test]
+// 函数作用：执行 builds index from browser scan result 相关逻辑。
 fn builds_index_from_browser_scan_result() {
     let index = BrowserIndex::from_scan_result(sample_scan()).expect("build index");
 
@@ -57,6 +61,7 @@ fn builds_index_from_browser_scan_result() {
 }
 
 #[test]
+// 函数作用：执行 saves and loads index json 相关逻辑。
 fn saves_and_loads_index_json() {
     let index = BrowserIndex::from_scan_result(sample_scan()).expect("build index");
     let path = std::env::temp_dir().join(format!("nina-browser-index-{}.json", std::process::id()));
@@ -69,6 +74,7 @@ fn saves_and_loads_index_json() {
 }
 
 #[test]
+// 函数作用：搜索 ranks items by query tokens。
 fn search_ranks_items_by_query_tokens() {
     let index = BrowserIndex::from_scan_result(sample_scan()).expect("build index");
     let hits = search_index(&index, "cold pad", SearchOptions::new(10)).expect("search index");
@@ -80,6 +86,7 @@ fn search_ranks_items_by_query_tokens() {
 }
 
 #[test]
+// 函数作用：搜索 can return loadable items only。
 fn search_can_return_loadable_items_only() {
     let index = BrowserIndex::from_scan_result(sample_scan()).expect("build index");
     let hits = search_index(
@@ -93,6 +100,7 @@ fn search_can_return_loadable_items_only() {
 }
 
 #[test]
+// 函数作用：执行 random pick is deterministic for same seed 相关逻辑。
 fn random_pick_is_deterministic_for_same_seed() {
     let index = BrowserIndex::from_scan_result(sample_scan()).expect("build index");
     let options = RandomOptions::new(42).with_loadable_only(true);

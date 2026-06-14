@@ -1,3 +1,5 @@
+// 本文件作用：实现 Nina MIDI JSON 与标准 MIDI 文件的互相转换。
+
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -11,10 +13,12 @@ use crate::engine::midi::{MidiClipDocument, MidiClipTarget, MidiNote, MidiValida
 const DEFAULT_TICKS_PER_BEAT: u16 = 480;
 const DEFAULT_BEATS_PER_BAR: f64 = 4.0;
 
+// 函数作用：执行 default json output path 相关逻辑。
 pub fn default_json_output_path(input: &Path) -> PathBuf {
     input.with_extension("json")
 }
 
+// 函数作用：导出 document to smf。
 pub fn export_document_to_smf(document: &MidiClipDocument, output: &Path) -> Result<(), SmfError> {
     document.validate(DEFAULT_BEATS_PER_BAR as u8)?;
     let smf = notes_to_smf(&document.notes)?;
@@ -24,6 +28,7 @@ pub fn export_document_to_smf(document: &MidiClipDocument, output: &Path) -> Res
     Ok(())
 }
 
+// 函数作用：导出 notes to smf。
 pub fn export_notes_to_smf(notes: &[MidiNote], output: &Path) -> Result<(), SmfError> {
     validate_notes_for_smf(notes)?;
     let smf = notes_to_smf(notes)?;
@@ -33,6 +38,7 @@ pub fn export_notes_to_smf(notes: &[MidiNote], output: &Path) -> Result<(), SmfE
     Ok(())
 }
 
+// 函数作用：导入 smf to document。
 pub fn import_smf_to_document(
     input: &Path,
     track: usize,
@@ -70,6 +76,7 @@ pub fn import_smf_to_document(
     Ok(document)
 }
 
+// 函数作用：执行 notes to smf 相关逻辑。
 fn notes_to_smf(notes: &[MidiNote]) -> Result<Smf<'static>, SmfError> {
     let mut events = Vec::new();
     for note in notes {
@@ -111,6 +118,7 @@ fn notes_to_smf(notes: &[MidiNote]) -> Result<Smf<'static>, SmfError> {
     })
 }
 
+// 函数作用：校验输入数据是否满足业务约束。
 fn validate_notes_for_smf(notes: &[MidiNote]) -> Result<(), SmfError> {
     if notes.is_empty() {
         return Err(SmfError::NoMidiNotes);
@@ -125,6 +133,7 @@ fn validate_notes_for_smf(notes: &[MidiNote]) -> Result<(), SmfError> {
     Ok(())
 }
 
+// 函数作用：执行 first note track 相关逻辑。
 fn first_note_track(smf: &Smf<'_>, ticks_per_beat: u16) -> Result<Vec<MidiNote>, SmfError> {
     for track in &smf.tracks {
         let notes = collect_track_notes(track, ticks_per_beat)?;
@@ -135,6 +144,7 @@ fn first_note_track(smf: &Smf<'_>, ticks_per_beat: u16) -> Result<Vec<MidiNote>,
     Err(SmfError::NoMidiNotes)
 }
 
+// 函数作用：执行 collect track notes 相关逻辑。
 fn collect_track_notes(
     track: &[TrackEvent<'_>],
     ticks_per_beat: u16,
@@ -189,6 +199,7 @@ fn collect_track_notes(
     Ok(notes)
 }
 
+// 函数作用：执行 ticks per beat 相关逻辑。
 fn ticks_per_beat(header: &Header) -> Result<u16, SmfError> {
     match header.timing {
         Timing::Metrical(ticks) => Ok(ticks.as_int()),
@@ -196,6 +207,7 @@ fn ticks_per_beat(header: &Header) -> Result<u16, SmfError> {
     }
 }
 
+// 函数作用：执行 beat to tick 相关逻辑。
 fn beat_to_tick(beat: f64) -> Result<u32, SmfError> {
     if !beat.is_finite() || beat < 0.0 {
         return Err(SmfError::InvalidBeat(beat));
@@ -207,21 +219,25 @@ fn beat_to_tick(beat: f64) -> Result<u32, SmfError> {
     Ok(tick as u32)
 }
 
+// 函数作用：执行 tick to beat 相关逻辑。
 fn tick_to_beat(tick: u32, ticks_per_beat: u16) -> f64 {
     trim_float_noise(f64::from(tick) / f64::from(ticks_per_beat))
 }
 
+// 函数作用：执行 trim float noise 相关逻辑。
 fn trim_float_noise(value: f64) -> f64 {
     (value * 1_000_000.0).round() / 1_000_000.0
 }
 
 #[derive(Debug, Clone)]
+// 结构体作用：承载 Open Note 相关数据。
 struct OpenNote {
     start_tick: u32,
     velocity: u8,
 }
 
 #[derive(Debug, Clone)]
+// 结构体作用：承载 Timed Midi Event 相关数据。
 struct TimedMidiEvent {
     tick: u32,
     order: u8,
@@ -229,6 +245,7 @@ struct TimedMidiEvent {
 }
 
 impl TimedMidiEvent {
+    // 函数作用：执行 note on 相关逻辑。
     fn note_on(tick: u32, pitch: u16, velocity: u16) -> Result<Self, SmfError> {
         Ok(Self {
             tick,
@@ -243,6 +260,7 @@ impl TimedMidiEvent {
         })
     }
 
+    // 函数作用：执行 note off 相关逻辑。
     fn note_off(tick: u32, pitch: u16) -> Result<Self, SmfError> {
         Ok(Self {
             tick,
@@ -258,11 +276,13 @@ impl TimedMidiEvent {
     }
 }
 
+// 函数作用：转换为 u7。
 fn to_u7(value: u16, label: &'static str) -> Result<u7, SmfError> {
     u7::try_from(value as u8).ok_or(SmfError::U7OutOfRange { label, value })
 }
 
 #[derive(Debug, Error)]
+// 枚举作用：列出 Smf Error 的可选状态或命令。
 pub enum SmfError {
     #[error(transparent)]
     Io(#[from] std::io::Error),

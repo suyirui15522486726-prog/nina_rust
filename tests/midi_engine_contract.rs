@@ -1,7 +1,10 @@
+// 本文件作用：定义项目契约测试，验证对应模块的公开行为。
+
 use nina_rust::engine::midi::MidiClipDocument;
 use nina_rust::engine::time::BarRange;
 
 #[test]
+// 函数作用：执行 bar range converts user bars to ableton beats 相关逻辑。
 fn bar_range_converts_user_bars_to_ableton_beats() {
     let range = BarRange::try_new(1, 5).expect("valid bar range");
     let beats = range.to_beats(4);
@@ -11,6 +14,7 @@ fn bar_range_converts_user_bars_to_ableton_beats() {
 }
 
 #[test]
+// 函数作用：执行 bar range rejects empty or backwards ranges 相关逻辑。
 fn bar_range_rejects_empty_or_backwards_ranges() {
     let error = BarRange::try_new(4, 4).expect_err("right edge must be after left edge");
 
@@ -18,6 +22,7 @@ fn bar_range_rejects_empty_or_backwards_ranges() {
 }
 
 #[test]
+// 函数作用：执行 midi document accepts strudel inspired metadata 相关逻辑。
 fn midi_document_accepts_strudel_inspired_metadata() {
     let json = r#"{
       "version": 1,
@@ -50,6 +55,7 @@ fn midi_document_accepts_strudel_inspired_metadata() {
 }
 
 #[test]
+// 函数作用：执行 midi document rejects notes that exceed clip length 相关逻辑。
 fn midi_document_rejects_notes_that_exceed_clip_length() {
     let json = r#"{
       "version": 1,
@@ -64,6 +70,7 @@ fn midi_document_rejects_notes_that_exceed_clip_length() {
 }
 
 #[test]
+// 函数作用：执行 midi document rejects out of range pitch 相关逻辑。
 fn midi_document_rejects_out_of_range_pitch() {
     let json = r#"{
       "version": 1,

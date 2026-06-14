@@ -1,3 +1,5 @@
+// 本文件作用：定义可验证和可执行的多步骤 action plan。
+
 use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
@@ -10,12 +12,14 @@ use crate::engine::time::{BarRange, TimeError};
 pub const ACTION_PLAN_VERSION: u8 = 1;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+// 结构体作用：承载 Action Plan Document 相关数据。
 pub struct ActionPlanDocument {
     pub version: u8,
     pub actions: Vec<PlanAction>,
 }
 
 impl ActionPlanDocument {
+    // 函数作用：校验输入数据是否满足业务约束。
     pub fn validate_with_base_dir(
         &self,
         base_dir: impl AsRef<Path>,
@@ -45,6 +49,7 @@ impl ActionPlanDocument {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
+// 枚举作用：列出 Plan Action 的可选状态或命令。
 pub enum PlanAction {
     CreateMidiTrack {
         #[serde(default)]
@@ -68,6 +73,7 @@ pub enum PlanAction {
 }
 
 impl PlanAction {
+    // 函数作用：校验输入数据是否满足业务约束。
     pub fn validate(
         &self,
         index: usize,
@@ -151,6 +157,7 @@ impl PlanAction {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+// 结构体作用：承载 Plan Validation Report 相关数据。
 pub struct PlanValidationReport {
     pub valid: bool,
     pub action_count: usize,
@@ -158,6 +165,7 @@ pub struct PlanValidationReport {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+// 结构体作用：承载 Plan Action Preview 相关数据。
 pub struct PlanActionPreview {
     pub index: usize,
     pub kind: String,
@@ -165,6 +173,7 @@ pub struct PlanActionPreview {
 }
 
 #[derive(Debug, Error)]
+// 枚举作用：列出 Plan Error 的可选状态或命令。
 pub enum PlanError {
     #[error("unsupported action plan version {0}; expected version 1")]
     UnsupportedVersion(u8),
@@ -188,6 +197,7 @@ pub enum PlanError {
     DrumPattern(#[from] DrumPatternError),
 }
 
+// 函数作用：执行 resolve plan path 相关逻辑。
 pub fn resolve_plan_path(base_dir: &Path, file: &Path) -> PathBuf {
     if file.is_absolute() {
         file.to_path_buf()
@@ -196,6 +206,7 @@ pub fn resolve_plan_path(base_dir: &Path, file: &Path) -> PathBuf {
     }
 }
 
+// 函数作用：校验输入数据是否满足业务约束。
 fn validate_track(index: usize, track: usize) -> Result<(), PlanError> {
     if track == 0 {
         Err(PlanError::TrackBeforeOne { index })

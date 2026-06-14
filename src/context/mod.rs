@@ -1,3 +1,5 @@
+// 本文件作用：把 Live、device、drum 和 browser 信息汇总为 agent 上下文。
+
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -6,6 +8,7 @@ use crate::drum::AgentDrumMap;
 use crate::protocol::{DeviceTrackScanResult, LiveSetSnapshot, TrackSummary};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+// 结构体作用：承载 Agent Context 相关数据。
 pub struct AgentContext {
     pub version: u8,
     pub live: AgentLiveContext,
@@ -17,6 +20,7 @@ pub struct AgentContext {
 }
 
 impl AgentContext {
+    // 函数作用：执行 for track 相关逻辑。
     pub fn for_track(
         track: usize,
         snapshot: LiveSetSnapshot,
@@ -46,6 +50,7 @@ impl AgentContext {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+// 结构体作用：承载 Agent Live Context 相关数据。
 pub struct AgentLiveContext {
     pub tempo: f64,
     pub signature_numerator: u8,
@@ -56,6 +61,7 @@ pub struct AgentLiveContext {
 }
 
 impl AgentLiveContext {
+    // 函数作用：从 snapshot 构造当前类型。
     fn from_snapshot(snapshot: &LiveSetSnapshot) -> Self {
         Self {
             tempo: snapshot.tempo,
@@ -69,6 +75,7 @@ impl AgentLiveContext {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+// 结构体作用：承载 Agent Track Context 相关数据。
 pub struct AgentTrackContext {
     pub user_index: usize,
     pub remote_index: usize,
@@ -80,6 +87,7 @@ pub struct AgentTrackContext {
 }
 
 impl AgentTrackContext {
+    // 函数作用：从 summary 构造当前类型。
     fn from_summary(user_index: usize, summary: &TrackSummary) -> Self {
         Self {
             user_index,
@@ -94,6 +102,7 @@ impl AgentTrackContext {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+// 结构体作用：承载 Agent Capability 相关数据。
 pub struct AgentCapability {
     pub id: String,
     pub command: String,
@@ -101,6 +110,7 @@ pub struct AgentCapability {
 }
 
 #[derive(Debug, Error, PartialEq, Eq)]
+// 枚举作用：列出 Agent Context Error 的可选状态或命令。
 pub enum AgentContextError {
     #[error("track must be at least 1")]
     TrackBeforeOne,
@@ -108,6 +118,7 @@ pub enum AgentContextError {
     TrackNotFound { track: usize },
 }
 
+// 函数作用：执行 default capabilities 相关逻辑。
 fn default_capabilities() -> Vec<AgentCapability> {
     [
         (

@@ -1,3 +1,5 @@
+// 本文件作用：定义 Rust CLI 的命令树、参数解析和各子命令执行入口。
+
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
@@ -7,6 +9,7 @@ use serde::Serialize;
 use serde_json::json;
 use thiserror::Error;
 
+use crate::audio::{AudioError, AudioFile, AudioPlacement};
 use crate::browser::{
     BrowserIndex, BrowserIndexError, RandomOptions, SearchOptions, pick_random_item, search_index,
 };
@@ -24,15 +27,21 @@ use crate::engine::transform::{
 };
 use crate::live::recorder::LiveRecorderError;
 use crate::live::{LiveRecorder, SnapshotDiff, WatchOptions, run_watch_loop};
+use crate::media::{
+    DryRunMediaProvider, MediaError, MediaLane, MediaProvider, MediaRequest, ProviderKind,
+    StemKind, default_manifest_file_name, load_manifest, save_manifest,
+};
 use crate::plan::{ActionPlanDocument, PlanAction, PlanError, resolve_plan_path};
 use crate::protocol::{
-    BrowserScanRootParams, CreateMidiClipRangeParams, CreateMidiTrackParams, DeviceScanTrackParams,
-    DrumScanTrackParams, LiveSetSnapshot, ProtocolMidiNote, TrackMidiExportParams,
-    WriteMidiClipParams,
+    AudioClipScanParams, AudioContextParams, AudioEffectScanParams, AudioImportClipParams,
+    AudioToMidiMode, AudioToMidiParams, BrowserScanRootParams, CreateAudioTrackParams,
+    CreateMidiClipRangeParams, CreateMidiTrackParams, DeviceScanTrackParams, DrumScanTrackParams,
+    LiveSetSnapshot, ProtocolMidiNote, TrackMidiExportParams, WriteMidiClipParams,
 };
 use crate::track_export::{TrackExportError, export_track_result_to_smf};
 
 #[derive(Debug, Error)]
+// 枚举作用：列出 Cli Error 的可选状态或命令。
 pub enum CliError {
     #[error(transparent)]
     Client(#[from] ClientError),
@@ -62,6 +71,10 @@ pub enum CliError {
     Plan(#[from] PlanError),
     #[error(transparent)]
     TrackExport(#[from] TrackExportError),
+    #[error(transparent)]
+    Audio(#[from] AudioError),
+    #[error(transparent)]
+    Media(#[from] MediaError),
     #[error("validation error: {0}")]
     Validation(String),
 }
@@ -72,6 +85,7 @@ pub enum CliError {
 #[command(
     after_help = "Examples:\n  nina_rust live health\n  nina_rust live snapshot\n  nina_rust live tempo set 174\n  nina_rust live transport play"
 )]
+// 结构体作用：承载 Cli 相关数据。
 pub struct Cli {
     #[arg(long, default_value = "127.0.0.1", global = true)]
     host: String,
@@ -84,6 +98,7 @@ pub struct Cli {
 }
 
 #[derive(Debug, Subcommand)]
+// 枚举作用：列出 Commands 的可选状态或命令。
 enum Commands {
     #[command(about = "Control or inspect Ableton Live")]
     Live {
@@ -110,6 +125,11 @@ enum Commands {
         #[command(subcommand)]
         command: DrumCommand,
     },
+    #[command(about = "Manage Ableton audio tracks, clips, and audio context")]
+    Audio {
+        #[command(subcommand)]
+        command: AudioCommand,
+    },
     #[command(about = "Export model-readable Ableton context")]
     Context {
         #[command(subcommand)]
@@ -130,9 +150,15 @@ enum Commands {
         #[command(subcommand)]
         command: MidiCommand,
     },
+    #[command(about = "Plan and verify external media provider jobs")]
+    Media {
+        #[command(subcommand)]
+        command: MediaCommand,
+    },
 }
 
 #[derive(Debug, Subcommand)]
+// 枚举作用：列出 Live Command 的可选状态或命令。
 enum LiveCommand {
     #[command(about = "Check whether NinaRustBridge is reachable")]
     Health,
@@ -167,6 +193,7 @@ enum LiveCommand {
 }
 
 #[derive(Debug, Subcommand)]
+// 枚举作用：列出 Tempo Command 的可选状态或命令。
 enum TempoCommand {
     #[command(about = "Set BPM")]
     Set {
@@ -176,6 +203,7 @@ enum TempoCommand {
 }
 
 #[derive(Debug, Subcommand)]
+// 枚举作用：列出 Transport Command 的可选状态或命令。
 enum TransportCommand {
     #[command(about = "Start playback")]
     Play,
@@ -184,6 +212,7 @@ enum TransportCommand {
 }
 
 #[derive(Debug, Subcommand)]
+// 枚举作用：列出 Clip Command 的可选状态或命令。
 enum ClipCommand {
     #[command(about = "Create an arrangement MIDI clip by track and bar range")]
     Create {
@@ -204,6 +233,7 @@ enum ClipCommand {
 }
 
 #[derive(Debug, Subcommand)]
+// 枚举作用：列出 Browser Command 的可选状态或命令。
 enum BrowserCommand {
     #[command(about = "Scan first-level items under an Ableton browser root")]
     Scan {
@@ -246,6 +276,7 @@ enum BrowserCommand {
 }
 
 #[derive(Debug, Subcommand)]
+// 枚举作用：列出 Device Command 的可选状态或命令。
 enum DeviceCommand {
     #[command(about = "Scan devices, parameters, and rack chains on a track")]
     Scan {
@@ -257,6 +288,7 @@ enum DeviceCommand {
 }
 
 #[derive(Debug, Subcommand)]
+// 枚举作用：列出 Drum Command 的可选状态或命令。
 enum DrumCommand {
     #[command(about = "Scan Drum Rack pads and MIDI note mappings on a track")]
     Scan {
@@ -275,12 +307,78 @@ enum DrumCommand {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+// 枚举作用：列出 Drum Scan Format 的可选状态或命令。
 enum DrumScanFormat {
     Raw,
     Agent,
 }
 
 #[derive(Debug, Subcommand)]
+// 枚举作用：列出 Audio Command 的可选状态或命令。
+enum AudioCommand {
+    #[command(about = "Import a local audio file into an arrangement audio track")]
+    Import {
+        #[arg(long, value_name = "TRACK_NUMBER")]
+        track: usize,
+        #[arg(long, value_name = "AUDIO_FILE")]
+        file: PathBuf,
+        #[arg(long, default_value_t = 1, value_name = "BAR")]
+        bar: u32,
+        #[arg(long, value_name = "CLIP_NAME")]
+        name: Option<String>,
+    },
+    #[command(about = "Scan an audio track's device chain without parameter values")]
+    Effects {
+        #[arg(long, value_name = "TRACK_NUMBER")]
+        track: usize,
+    },
+    #[command(about = "Scan arrangement audio clips on an audio track")]
+    Clips {
+        #[arg(long, value_name = "TRACK_NUMBER")]
+        track: usize,
+    },
+    #[command(about = "Export agent-readable audio track context")]
+    Context {
+        #[arg(long, value_name = "TRACK_NUMBER")]
+        track: usize,
+    },
+    #[command(about = "Analyze a local audio file before importing it")]
+    AnalyzeFile {
+        #[arg(long, value_name = "AUDIO_FILE")]
+        file: PathBuf,
+    },
+    #[command(about = "Convert an arrangement audio clip to MIDI using Ableton conversion")]
+    ToMidi {
+        #[arg(long, value_name = "TRACK_NUMBER")]
+        track: usize,
+        #[arg(long, value_name = "CLIP_NUMBER")]
+        clip_index: usize,
+        #[arg(long, value_enum, value_name = "MODE")]
+        mode: CliAudioToMidiMode,
+    },
+}
+
+#[derive(Debug, Clone, Copy, ValueEnum)]
+// 枚举作用：列出 Cli Audio To Midi Mode 的可选状态或命令。
+enum CliAudioToMidiMode {
+    Drums,
+    Melody,
+    Harmony,
+}
+
+impl From<CliAudioToMidiMode> for AudioToMidiMode {
+    // 函数作用：执行 from 相关逻辑。
+    fn from(value: CliAudioToMidiMode) -> Self {
+        match value {
+            CliAudioToMidiMode::Drums => Self::Drums,
+            CliAudioToMidiMode::Melody => Self::Melody,
+            CliAudioToMidiMode::Harmony => Self::Harmony,
+        }
+    }
+}
+
+#[derive(Debug, Subcommand)]
+// 枚举作用：列出 Context Command 的可选状态或命令。
 enum ContextCommand {
     #[command(about = "Export one track of Live, device, drum, and optional browser context")]
     Export {
@@ -298,6 +396,7 @@ enum ContextCommand {
 }
 
 #[derive(Debug, Subcommand)]
+// 枚举作用：列出 Plan Command 的可选状态或命令。
 enum PlanCommand {
     #[command(about = "Validate a JSON action plan without changing Ableton")]
     Validate {
@@ -316,9 +415,17 @@ enum PlanCommand {
 }
 
 #[derive(Debug, Subcommand)]
+// 枚举作用：列出 Track Command 的可选状态或命令。
 enum TrackCommand {
     #[command(about = "Create a MIDI track in Ableton Live")]
     CreateMidi {
+        #[arg(long, value_name = "NAME")]
+        name: Option<String>,
+        #[arg(long, value_name = "POSITION")]
+        position: Option<usize>,
+    },
+    #[command(about = "Create an audio track in Ableton Live")]
+    CreateAudio {
         #[arg(long, value_name = "NAME")]
         name: Option<String>,
         #[arg(long, value_name = "POSITION")]
@@ -336,6 +443,7 @@ enum TrackCommand {
 }
 
 #[derive(Debug, Subcommand)]
+// 枚举作用：列出 Midi Command 的可选状态或命令。
 enum MidiCommand {
     #[command(about = "Validate a MIDI JSON file without writing to Ableton")]
     Validate {
@@ -391,10 +499,71 @@ enum MidiCommand {
     },
 }
 
+#[derive(Debug, Subcommand)]
+// 枚举作用：列出 Media Command 的可选状态或命令。
+enum MediaCommand {
+    #[command(about = "Create a manifest for an external media-provider job")]
+    Plan {
+        #[arg(long, value_enum, value_name = "LANE")]
+        lane: CliMediaLane,
+        #[arg(long, value_enum, value_name = "PROVIDER")]
+        provider: CliProviderKind,
+        #[arg(long, value_name = "INPUT_FILE")]
+        input: PathBuf,
+        #[arg(long, value_name = "OUTPUT_DIR")]
+        output_dir: PathBuf,
+        #[arg(long, value_name = "STEMS")]
+        stems: String,
+        #[arg(long, value_name = "TEXT")]
+        description: Option<String>,
+    },
+    #[command(about = "Verify whether a media-provider manifest's outputs exist")]
+    Status {
+        #[arg(long, value_name = "MANIFEST_JSON")]
+        manifest: PathBuf,
+    },
+}
+
+#[derive(Debug, Clone, Copy, ValueEnum)]
+// 枚举作用：列出 Cli Media Lane 的可选状态或命令。
+enum CliMediaLane {
+    MidiJson,
+    AudioFile,
+    StemSplit,
+}
+
+impl From<CliMediaLane> for MediaLane {
+    // 函数作用：执行 from 相关逻辑。
+    fn from(value: CliMediaLane) -> Self {
+        match value {
+            CliMediaLane::MidiJson => Self::MidiJson,
+            CliMediaLane::AudioFile => Self::AudioFile,
+            CliMediaLane::StemSplit => Self::StemSplit,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, ValueEnum)]
+// 枚举作用：列出 Cli Provider Kind 的可选状态或命令。
+enum CliProviderKind {
+    DryRun,
+}
+
+impl From<CliProviderKind> for ProviderKind {
+    // 函数作用：执行 from 相关逻辑。
+    fn from(value: CliProviderKind) -> Self {
+        match value {
+            CliProviderKind::DryRun => Self::DryRun,
+        }
+    }
+}
+
+// 函数作用：执行 run 相关逻辑。
 pub fn run() -> Result<(), CliError> {
     run_from(Cli::parse())
 }
 
+// 函数作用：运行 from。
 fn run_from(cli: Cli) -> Result<(), CliError> {
     let transport = TcpTransport::new(cli.host, cli.port, Duration::from_secs(cli.timeout_seconds));
     let client = AbletonClient::new(transport);
@@ -565,6 +734,53 @@ fn run_from(cli: Cli) -> Result<(), CliError> {
                 print_json(&result)?;
             }
         },
+        Commands::Audio { command } => match command {
+            AudioCommand::Import {
+                track,
+                file,
+                bar,
+                name,
+            } => {
+                let remote_index = user_track_to_remote_index(track)?;
+                let audio_file = AudioFile::from_path(file)?;
+                let snapshot = client.snapshot()?;
+                let placement = AudioPlacement::from_user_bar(bar, snapshot.signature_numerator)?;
+                let params = AudioImportClipParams::new(
+                    remote_index,
+                    audio_file.path_string(),
+                    placement.destination_time(),
+                    name,
+                );
+                print_json(&client.audio_import_clip(params)?)?;
+            }
+            AudioCommand::Effects { track } => {
+                let remote_index = user_track_to_remote_index(track)?;
+                print_json(&client.audio_effect_scan(AudioEffectScanParams::new(remote_index))?)?;
+            }
+            AudioCommand::Clips { track } => {
+                let remote_index = user_track_to_remote_index(track)?;
+                print_json(&client.audio_clip_scan(AudioClipScanParams::new(remote_index))?)?;
+            }
+            AudioCommand::Context { track } => {
+                let remote_index = user_track_to_remote_index(track)?;
+                print_json(&client.audio_context(AudioContextParams::new(remote_index))?)?;
+            }
+            AudioCommand::AnalyzeFile { file } => {
+                let audio_file = AudioFile::from_path(file)?;
+                print_json(&audio_file.analyze()?)?;
+            }
+            AudioCommand::ToMidi {
+                track,
+                clip_index,
+                mode,
+            } => {
+                let remote_track_index = user_track_to_remote_index(track)?;
+                let remote_clip_index = user_clip_to_remote_index(clip_index)?;
+                let params =
+                    AudioToMidiParams::new(remote_track_index, remote_clip_index, mode.into());
+                print_json(&client.audio_to_midi(params)?)?;
+            }
+        },
         Commands::Context { command } => match command {
             ContextCommand::Export {
                 track,
@@ -625,6 +841,12 @@ fn run_from(cli: Cli) -> Result<(), CliError> {
                 let remote_index = optional_user_position_to_remote_index(position)?;
                 print_json(
                     &client.create_midi_track(CreateMidiTrackParams::new(remote_index, name))?,
+                )?;
+            }
+            TrackCommand::CreateAudio { name, position } => {
+                let remote_index = optional_user_position_to_remote_index(position)?;
+                print_json(
+                    &client.create_audio_track(CreateAudioTrackParams::new(remote_index, name))?,
                 )?;
             }
             TrackCommand::ExportMidi {
@@ -729,37 +951,79 @@ fn run_from(cli: Cli) -> Result<(), CliError> {
                 }))?;
             }
         },
+        Commands::Media { command } => match command {
+            MediaCommand::Plan {
+                lane,
+                provider,
+                input,
+                output_dir,
+                stems,
+                description,
+            } => {
+                let lane = MediaLane::from(lane);
+                let provider = ProviderKind::from(provider);
+                if lane != MediaLane::StemSplit || provider != ProviderKind::DryRun {
+                    return Err(CliError::Validation(
+                        "media plan currently supports only --lane stem-split --provider dry-run"
+                            .to_owned(),
+                    ));
+                }
+
+                let stems = StemKind::parse_list(&stems)?;
+                let mut request = MediaRequest::stem_split(input, output_dir.clone(), stems);
+                if let Some(description) = description {
+                    request = request.with_description(description);
+                }
+
+                let provider = DryRunMediaProvider::new();
+                let manifest = provider.plan(&request)?;
+                let manifest_path = output_dir.join(default_manifest_file_name());
+                save_manifest(&manifest, &manifest_path)?;
+                print_json(&manifest)?;
+            }
+            MediaCommand::Status { manifest } => {
+                let manifest = load_manifest(&manifest)?;
+                let provider = DryRunMediaProvider::new();
+                print_json(&provider.verify_outputs(&manifest)?)?;
+            }
+        },
     }
 
     Ok(())
 }
 
+// 函数作用：读取 midi clip document。
 fn read_midi_clip_document(file: PathBuf) -> Result<MidiClipDocument, CliError> {
     let content = fs::read_to_string(file)?;
     Ok(serde_json::from_str(&content)?)
 }
 
+// 函数作用：读取 drum pattern document。
 fn read_drum_pattern_document(file: PathBuf) -> Result<DrumPatternDocument, CliError> {
     let content = fs::read_to_string(file)?;
     Ok(serde_json::from_str(&content)?)
 }
 
+// 函数作用：读取 action plan document。
 fn read_action_plan_document(file: &Path) -> Result<ActionPlanDocument, CliError> {
     let content = fs::read_to_string(file)?;
     Ok(serde_json::from_str(&content)?)
 }
 
+// 函数作用：读取 live set snapshot。
 fn read_live_set_snapshot(file: PathBuf) -> Result<LiveSetSnapshot, CliError> {
     let content = fs::read_to_string(file)?;
     Ok(serde_json::from_str(&content)?)
 }
 
+// 函数作用：写入 midi clip document。
 fn write_midi_clip_document(file: PathBuf, document: &MidiClipDocument) -> Result<(), CliError> {
     let content = serde_json::to_string_pretty(document)?;
     fs::write(file, format!("{content}\n"))?;
     Ok(())
 }
 
+// 函数作用：写入 json file。
 fn write_json_file<T>(file: &Path, value: &T) -> Result<(), CliError>
 where
     T: Serialize,
@@ -775,6 +1039,7 @@ where
     Ok(())
 }
 
+// 函数作用：写入 params from document。
 fn write_params_from_document(
     document: &MidiClipDocument,
 ) -> Result<WriteMidiClipParams, CliError> {
@@ -801,6 +1066,7 @@ fn write_params_from_document(
     ))
 }
 
+// 函数作用：写入 drum pattern。
 fn write_drum_pattern(
     client: &AbletonClient<TcpTransport>,
     pattern: &DrumPatternDocument,
@@ -822,6 +1088,7 @@ fn write_drum_pattern(
     }))
 }
 
+// 函数作用：导出 agent context。
 fn export_agent_context(
     client: &AbletonClient<TcpTransport>,
     track: usize,
@@ -852,6 +1119,7 @@ fn export_agent_context(
     )?)
 }
 
+// 函数作用：执行 apply action plan 相关逻辑。
 fn apply_action_plan(
     client: &AbletonClient<TcpTransport>,
     plan: &ActionPlanDocument,
@@ -928,24 +1196,35 @@ fn apply_action_plan(
     }))
 }
 
+// 函数作用：执行 plan base dir 相关逻辑。
 fn plan_base_dir(file: &Path) -> &Path {
     file.parent()
         .filter(|parent| !parent.as_os_str().is_empty())
         .unwrap_or_else(|| Path::new("."))
 }
 
+// 函数作用：执行 user track to remote index 相关逻辑。
 fn user_track_to_remote_index(track: usize) -> Result<usize, CliError> {
     track
         .checked_sub(1)
         .ok_or_else(|| CliError::Validation("track must be at least 1".to_owned()))
 }
 
+// 函数作用：执行 optional user position to remote index 相关逻辑。
 fn optional_user_position_to_remote_index(
     position: Option<usize>,
 ) -> Result<Option<usize>, CliError> {
     position.map(user_track_to_remote_index).transpose()
 }
 
+// 函数作用：执行 user clip to remote index 相关逻辑。
+fn user_clip_to_remote_index(clip_index: usize) -> Result<usize, CliError> {
+    clip_index
+        .checked_sub(1)
+        .ok_or_else(|| CliError::Validation("clip-index must be at least 1".to_owned()))
+}
+
+// 函数作用：执行 print json 相关逻辑。
 fn print_json<T>(value: &T) -> Result<(), CliError>
 where
     T: Serialize,

@@ -1,3 +1,5 @@
+// 本文件作用：实现 MIDI JSON 的转调和量化变换。
+
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -6,6 +8,7 @@ use crate::engine::midi::{MidiClipDocument, MidiNote, MidiValidationError};
 const MIDI_MIN_PITCH: i16 = 0;
 const MIDI_MAX_PITCH: i16 = 127;
 
+// 函数作用：执行 transpose document 相关逻辑。
 pub fn transpose_document(
     document: &MidiClipDocument,
     semitones: i16,
@@ -26,6 +29,7 @@ pub fn transpose_document(
     Ok(transformed)
 }
 
+// 函数作用：执行 quantize document 相关逻辑。
 pub fn quantize_document(
     document: &MidiClipDocument,
     grid: QuantizeGrid,
@@ -38,6 +42,7 @@ pub fn quantize_document(
     Ok(transformed)
 }
 
+// 函数作用：执行 quantize note 相关逻辑。
 fn quantize_note(note: &mut MidiNote, step: f64) -> Result<(), TransformError> {
     note.start = round_to_grid(note.start, step)?;
     note.duration = round_to_grid(note.duration, step)?;
@@ -47,6 +52,7 @@ fn quantize_note(note: &mut MidiNote, step: f64) -> Result<(), TransformError> {
     Ok(())
 }
 
+// 函数作用：执行 round to grid 相关逻辑。
 fn round_to_grid(value: f64, step: f64) -> Result<f64, TransformError> {
     if !value.is_finite() {
         return Err(TransformError::InvalidTime(value));
@@ -55,12 +61,14 @@ fn round_to_grid(value: f64, step: f64) -> Result<f64, TransformError> {
     Ok(trim_float_noise(rounded))
 }
 
+// 函数作用：执行 trim float noise 相关逻辑。
 fn trim_float_noise(value: f64) -> f64 {
     (value * 1_000_000.0).round() / 1_000_000.0
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
+// 枚举作用：列出 Quantize Grid 的可选状态或命令。
 pub enum QuantizeGrid {
     Whole,
     Half,
@@ -71,6 +79,7 @@ pub enum QuantizeGrid {
 }
 
 impl QuantizeGrid {
+    // 函数作用：执行 parse 相关逻辑。
     pub fn parse(value: &str) -> Result<Self, TransformError> {
         match value.trim().to_ascii_lowercase().as_str() {
             "1/1" | "whole" => Ok(Self::Whole),
@@ -83,6 +92,7 @@ impl QuantizeGrid {
         }
     }
 
+    // 函数作用：执行 step beats 相关逻辑。
     pub fn step_beats(self) -> f64 {
         match self {
             Self::Whole => 4.0,
@@ -96,6 +106,7 @@ impl QuantizeGrid {
 }
 
 #[derive(Debug, Error)]
+// 枚举作用：列出 Transform Error 的可选状态或命令。
 pub enum TransformError {
     #[error(
         "note {index} shifted outside MIDI pitch range: original {original}, semitones {semitones}, shifted {shifted}"

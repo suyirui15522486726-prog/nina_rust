@@ -1,8 +1,11 @@
+// 本文件作用：实现音色库索引的可复现随机选择。
+
 use serde::{Deserialize, Serialize};
 
 use crate::browser::index::{BrowserIndex, BrowserIndexError, IndexedBrowserItem};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+// 结构体作用：承载 Random Options 相关数据。
 pub struct RandomOptions {
     pub seed: u64,
     pub root: Option<String>,
@@ -10,6 +13,7 @@ pub struct RandomOptions {
 }
 
 impl RandomOptions {
+    // 函数作用：构造当前类型的新实例。
     pub fn new(seed: u64) -> Self {
         Self {
             seed,
@@ -18,17 +22,20 @@ impl RandomOptions {
         }
     }
 
+    // 函数作用：设置 root 选项并返回当前配置。
     pub fn with_root(mut self, root: Option<String>) -> Self {
         self.root = root;
         self
     }
 
+    // 函数作用：设置 loadable only 选项并返回当前配置。
     pub fn with_loadable_only(mut self, loadable_only: bool) -> Self {
         self.loadable_only = loadable_only;
         self
     }
 }
 
+// 函数作用：选择 random item。
 pub fn pick_random_item(
     index: &BrowserIndex,
     options: RandomOptions,
@@ -56,6 +63,7 @@ pub fn pick_random_item(
     Ok(candidates[chosen].clone())
 }
 
+// 函数作用：执行 stable index 相关逻辑。
 fn stable_index(seed: u64, len: usize) -> usize {
     let mixed = seed
         .wrapping_add(0x9E37_79B9_7F4A_7C15)

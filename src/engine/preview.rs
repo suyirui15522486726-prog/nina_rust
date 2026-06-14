@@ -1,3 +1,5 @@
+// 本文件作用：生成 MIDI JSON 的摘要预览信息。
+
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -5,6 +7,7 @@ use crate::engine::midi::{MidiClipDocument, MidiValidationError};
 use crate::engine::time::BarRange;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+// 结构体作用：承载 Midi Preview 相关数据。
 pub struct MidiPreview {
     pub track: usize,
     pub start_bar: u32,
@@ -19,6 +22,7 @@ pub struct MidiPreview {
 }
 
 impl MidiPreview {
+    // 函数作用：从 document 构造当前类型。
     pub fn from_document(
         document: &MidiClipDocument,
         beats_per_bar: u8,
@@ -55,12 +59,14 @@ impl MidiPreview {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+// 结构体作用：承载 Pitch Range 相关数据。
 pub struct PitchRange {
     pub low: u16,
     pub high: u16,
 }
 
 impl PitchRange {
+    // 函数作用：从 document 构造当前类型。
     fn from_document(document: &MidiClipDocument) -> Result<Self, PreviewError> {
         let low = document
             .notes
@@ -79,12 +85,14 @@ impl PitchRange {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+// 结构体作用：承载 Velocity Range 相关数据。
 pub struct VelocityRange {
     pub low: u16,
     pub high: u16,
 }
 
 impl VelocityRange {
+    // 函数作用：从 document 构造当前类型。
     fn from_document(document: &MidiClipDocument) -> Result<Self, PreviewError> {
         let low = document
             .notes
@@ -103,6 +111,7 @@ impl VelocityRange {
 }
 
 #[derive(Debug, Error)]
+// 枚举作用：列出 Preview Error 的可选状态或命令。
 pub enum PreviewError {
     #[error(transparent)]
     MidiValidation(#[from] MidiValidationError),

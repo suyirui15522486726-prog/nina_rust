@@ -1,3 +1,5 @@
+// 本文件作用：轮询 Ableton snapshot 并产出变化事件。
+
 use std::thread;
 use std::time::Duration;
 
@@ -8,6 +10,7 @@ use crate::live::event::WatchEvent;
 use crate::protocol::LiveSetSnapshot;
 
 #[derive(Debug, Error)]
+// 枚举作用：列出 Watch Error 的可选状态或命令。
 pub enum WatchError<E>
 where
     E: std::error::Error + Send + Sync + 'static,
@@ -19,12 +22,14 @@ where
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+// 结构体作用：承载 Watch Options 相关数据。
 pub struct WatchOptions {
     pub poll_count: usize,
     pub interval: Duration,
 }
 
 impl WatchOptions {
+    // 函数作用：构造当前类型的新实例。
     pub fn new(poll_count: usize, interval: Duration) -> Self {
         Self {
             poll_count,
@@ -33,6 +38,7 @@ impl WatchOptions {
     }
 }
 
+// 函数作用：运行 watch loop。
 pub fn run_watch_loop<I, E>(
     snapshots: I,
     options: WatchOptions,

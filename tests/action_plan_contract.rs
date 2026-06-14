@@ -1,7 +1,10 @@
+// 本文件作用：定义项目契约测试，验证对应模块的公开行为。
+
 use std::fs;
 
 use nina_rust::plan::ActionPlanDocument;
 
+// 函数作用：写入 temp file。
 fn write_temp_file(name: &str, content: &str) -> std::path::PathBuf {
     let dir = std::env::temp_dir().join(format!("nina-plan-test-{}", std::process::id()));
     fs::create_dir_all(&dir).expect("create temp dir");
@@ -11,6 +14,7 @@ fn write_temp_file(name: &str, content: &str) -> std::path::PathBuf {
 }
 
 #[test]
+// 函数作用：执行 action plan validate returns dry run report for supported actions 相关逻辑。
 fn action_plan_validate_returns_dry_run_report_for_supported_actions() {
     write_temp_file(
         "phrase.json",
@@ -59,6 +63,7 @@ fn action_plan_validate_returns_dry_run_report_for_supported_actions() {
 }
 
 #[test]
+// 函数作用：执行 action plan rejects empty actions 相关逻辑。
 fn action_plan_rejects_empty_actions() {
     let plan: ActionPlanDocument =
         serde_json::from_str(r#"{ "version": 1, "actions": [] }"#).expect("plan parses");
@@ -71,6 +76,7 @@ fn action_plan_rejects_empty_actions() {
 }
 
 #[test]
+// 函数作用：执行 action plan rejects invalid clip bar ranges 相关逻辑。
 fn action_plan_rejects_invalid_clip_bar_ranges() {
     let plan: ActionPlanDocument = serde_json::from_str(
         r#"{

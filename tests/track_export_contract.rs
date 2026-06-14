@@ -1,3 +1,5 @@
+// 本文件作用：定义项目契约测试，验证对应模块的公开行为。
+
 use std::fs;
 
 use nina_rust::engine::smf::import_smf_to_document;
@@ -8,6 +10,7 @@ use nina_rust::track_export::{
     default_track_midi_file_name, export_track_result_to_smf, midi_notes_from_export,
 };
 
+// 函数作用：执行 sample export result 相关逻辑。
 fn sample_export_result() -> TrackMidiExportResult {
     TrackMidiExportResult {
         track: DeviceTrackSummary {
@@ -45,6 +48,7 @@ fn sample_export_result() -> TrackMidiExportResult {
 }
 
 #[test]
+// 函数作用：执行 converts whole track export notes to midi notes 相关逻辑。
 fn converts_whole_track_export_notes_to_midi_notes() {
     let notes = midi_notes_from_export(&sample_export_result()).expect("notes convert");
 
@@ -55,6 +59,7 @@ fn converts_whole_track_export_notes_to_midi_notes() {
 }
 
 #[test]
+// 函数作用：执行 default export file name uses track number and sanitized name 相关逻辑。
 fn default_export_file_name_uses_track_number_and_sanitized_name() {
     let name = default_track_midi_file_name(2, "Drum Bus / UKG");
 
@@ -62,6 +67,7 @@ fn default_export_file_name_uses_track_number_and_sanitized_name() {
 }
 
 #[test]
+// 函数作用：执行 exports whole track result to standard midi file 相关逻辑。
 fn exports_whole_track_result_to_standard_midi_file() {
     let dir = std::env::temp_dir().join(format!("nina-track-export-{}", std::process::id()));
     fs::create_dir_all(&dir).expect("create temp dir");

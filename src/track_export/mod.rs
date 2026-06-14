@@ -1,3 +1,5 @@
+// 本文件作用：把整轨 MIDI 导出结果写成标准 MIDI 文件。
+
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -8,6 +10,7 @@ use crate::engine::smf::{SmfError, export_notes_to_smf};
 use crate::protocol::{ProtocolMidiNote, TrackMidiExportResult};
 
 #[derive(Debug, Error)]
+// 枚举作用：列出 Track Export Error 的可选状态或命令。
 pub enum TrackExportError {
     #[error("exported track does not contain MIDI notes")]
     EmptyTrack,
@@ -19,6 +22,7 @@ pub enum TrackExportError {
     Smf(#[from] SmfError),
 }
 
+// 函数作用：执行 midi notes from export 相关逻辑。
 pub fn midi_notes_from_export(
     result: &TrackMidiExportResult,
 ) -> Result<Vec<MidiNote>, TrackExportError> {
@@ -45,6 +49,7 @@ pub fn midi_notes_from_export(
     Ok(notes)
 }
 
+// 函数作用：导出 track result to smf。
 pub fn export_track_result_to_smf(
     result: &TrackMidiExportResult,
     user_track: usize,
@@ -63,6 +68,7 @@ pub fn export_track_result_to_smf(
     Ok(output)
 }
 
+// 函数作用：执行 default track midi file name 相关逻辑。
 pub fn default_track_midi_file_name(user_track: usize, track_name: &str) -> String {
     let slug = sanitize_track_name(track_name);
     if slug.is_empty() {
@@ -72,6 +78,7 @@ pub fn default_track_midi_file_name(user_track: usize, track_name: &str) -> Stri
     }
 }
 
+// 函数作用：执行 midi note from protocol 相关逻辑。
 fn midi_note_from_protocol(note: &ProtocolMidiNote) -> MidiNote {
     MidiNote {
         pitch: note.pitch,
@@ -82,6 +89,7 @@ fn midi_note_from_protocol(note: &ProtocolMidiNote) -> MidiNote {
     }
 }
 
+// 函数作用：执行 sanitize track name 相关逻辑。
 fn sanitize_track_name(value: &str) -> String {
     let mut slug = String::new();
     let mut last_was_separator = false;
@@ -100,6 +108,7 @@ fn sanitize_track_name(value: &str) -> String {
     slug
 }
 
+// 函数作用：执行 ensure mid extension 相关逻辑。
 fn ensure_mid_extension(value: &str) -> String {
     if value.to_ascii_lowercase().ends_with(".mid") {
         value.to_owned()
